@@ -1,0 +1,31 @@
+*/__pycache__/*
+
+# .gitignore ファイルを作成/編集
+cat >> .gitignore << EOF
+# 環境変数
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Django
+*.log
+local_settings.py
+media/
+staticfiles/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+EOF
