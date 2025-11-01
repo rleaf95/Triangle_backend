@@ -23,14 +23,14 @@ class Company(models.Model):
   
   """アクティブなオーナーを取得"""
   def get_active_owners(self):
-    return User.objects.filter(
+    return 'core.User'.objects.filter(
       company_ownerships__company=self,
       company_ownerships__is_active=True
     ).distinct()
 
   """全店舗のスタッフを取得"""
   def get_all_staff(self):
-    return User.objects.filter(
+    return 'core.User'.objects.filter(
       tenant__company=self,
       user_type='STAFF',
       is_active=True

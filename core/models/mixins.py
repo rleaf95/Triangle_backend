@@ -96,6 +96,43 @@ class TenantAccessMixin:
 
 # === permission 関連メゾット（True or False)===
 class PermissionMixin:
+  # === Django標準メソッド（管理画面用） ===
+  """ Django標準のパーミッションチェック"""
+  def has_perm(self, perm, obj=None):
+    if not self.is_active:
+      return False
+    
+    if self.is_superuser or self.is_system_admin:
+      return True
+    
+    # permission_codeを抽出
+    if '.' in perm:
+      permission_code = perm.split('.')[-1]
+    else:
+        permission_code = perm
+    
+    return self.has_permission(permission_code)
+  
+  """複数のパーミッションをチェック"""
+  def has_perms(self, perm_list, obj=None):
+    return all(self.has_perm(perm, obj) for perm in perm_list)
+  
+  """管理画面でアプリが表示されるかどうかを判定"""
+  def has_module_perms(self, app_label):
+    if not self.is_active:
+      return False
+    
+    if self.is_superuser or self.is_system_admin:
+      return True
+    
+    if self.user_type == 'OWNER':
+      return self.get_owned_companies().exists()
+    
+    if self.user_type == 'STAFF':
+        return self.get_all_tenants().exists()
+    return False
+  
+  # === 既存のカスタムメソッド ===
   """指定されたテナントにアクセスできるかチェック"""
   def can_access_tenant(self, tenant):
     if self.is_system_admin:

@@ -1,6 +1,4 @@
-# accounts/models.py
-
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager,PermissionsMixin
 from django.db import models
 from django.utils import timezone
 import uuid
@@ -39,7 +37,7 @@ class UserManager(BaseUserManager):
     return self.create_user(email, password, **extra_fields)
 
 
-class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin):
+class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin,):
   USER_TYPE_CHOICES = (
     ('OWNER', 'オーナー'),
     ('STAFF', 'スタッフ'),
@@ -48,6 +46,10 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin):
   LANGUAGE_CHOICES = (
     ('ja', '日本語'),
     ('en', 'English'),
+  )
+  COUNTRY_CHOICES = (
+    ('AU', 'Australia'),
+    ('JP', 'Japan'),
   )
   TIMEZONE_CHOICES = (
     ('Asia/Tokyo', '日本標準時 (JST)'),
@@ -64,12 +66,9 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin):
   )
     
   # === Base  ===
-  id = models.UUIDField(
-      primary_key=True,
-      default=uuid.uuid4,
-      editable=False,
-      verbose_name='ユーザーID'
-  )
+  id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ユーザーID')
+  google_user_id = models.CharField( 'Google User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
+  apple_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
     
   email = models.EmailField( 'メールアドレス', unique=True, db_index=True, blank=True, )
   user_type = models.CharField( 'ユーザータイプ', max_length=10, choices=USER_TYPE_CHOICES)
@@ -100,6 +99,13 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin):
       choices=LANGUAGE_CHOICES,
       default='ja'
   )
+  country = models.CharField(
+    '国',
+    max_length=2,
+    choices=COUNTRY_CHOICES,
+    blank=True,
+    null=True
+  )
   timezone = models.CharField(
       'タイムゾーン',
       max_length=50,
@@ -112,45 +118,45 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin):
   USERNAME_FIELD = 'email'
   REQUIRED_FIELDS = ['user_type']
     
-  # class Meta:
-  #   db_table = 'users'
-  #   verbose_name = 'User'
-  #   verbose_name_plural = 'Users'
-  #   indexes = [
-  #       models.Index(fields=['email', 'user_type']),
-  #       models.Index(fields=['is_active', 'user_type']),
-  #   ]
-    
+  class Meta:
+    db_table = 'users'
+    verbose_name = 'User'
+    verbose_name_plural = 'Users'
+    indexes = [
+      models.Index(fields=['email', 'user_type']),
+      models.Index(fields=['is_active', 'user_type']),
+    ]
   def __str__(self):
     if self.user_type == 'STAFF':
-      tenant = self.get_tenant()
-      tenant_name = f"{tenant.count()}店舗に所属" if tenant.exists() else '所属なし'
+      tenants = self.get_all_tenants()
+      tenant_name = f"{tenants.count()}店舗に所属" if tenants.exists() else '所属なし'
     elif self.user_type == 'OWNER':
       companies = self.get_owned_companies()
       tenant_name = f"{companies.count()}社を経営" if companies.exists() else '会社なし'
     else:
-      tenant_name = 'システム'
+      tenant_name = 'カスタマー'
     
     return f"{self.email} ({self.get_user_type_display()}) - {tenant_name}"
-  
+
   """国固有の税務情報を取得"""
   def get_tax_info(self):
     if self.country == 'AU':
-        return getattr(self, 'australian_tax_info', None)
+      return getattr(self, 'australian_tax_info', None)
     elif self.country == 'JP':
-        return getattr(self, 'japanese_tax_info', None)
+      return getattr(self, 'japanese_tax_info', None)
     return None
-
+  
   """税務情報が登録されているか"""
   def has_tax_info(self):
     return self.get_tax_info() is not None
-  
+
 
 class OwnerProfile(models.Model):
   user = models.OneToOneField(
     User,
     on_delete=models.CASCADE,
-    related_name='owner_profile'
+    related_name='owner_profile',
+    limit_choices_to={'user_type': 'OWNER'}
   )
   first_name = models.CharField('名', max_length=50, blank=True)
   last_name = models.CharField('姓', max_length=50, blank=True)
@@ -158,19 +164,22 @@ class OwnerProfile(models.Model):
   image = models.ImageField('User Image', blank=True, null=True)
   
   class Meta:
-      db_table = 'owner_profiles'
-      verbose_name = 'owner_profiles'
-      verbose_name_plural = 'owner_profiles'
+    db_table = 'owner_profiles'
+    verbose_name = 'オーナープロファイル'
+    verbose_name_plural = 'オーナープロファイル'
   
   def __str__(self):
-      return f"{self.business_name} - {self.user.email}"
+    name = f"{self.last_name} {self.first_name}".strip() or "名前未設定"
+    return f"{name} - {self.user.email}"
+
 
 
 class StaffProfile(models.Model):
     user = models.OneToOneField(
       User,
       on_delete=models.CASCADE,
-      related_name='staff_profile'
+      related_name='staff_profile',
+      limit_choices_to={'user_type': 'STAFF'}
     )
     first_name = models.CharField('名', max_length=50, blank=True)
     last_name = models.CharField('姓', max_length=50, blank=True)
@@ -181,17 +190,18 @@ class StaffProfile(models.Model):
     country = models.CharField('国', max_length=2, choices=[('AU', 'Australia'), ('JP', 'Japan')])
     phone_number = models.CharField('電話番号', max_length=20, blank=True)
     hire_date = models.DateField('入社日', default=timezone.now)
-    unemplyed = models.DateField('Unemplyed', blank=True, null=True)
+    unemployed_date = models.DateField('退職日', blank=True, null=True)
     is_active = models.BooleanField('在籍中', default=True)
     updated_at = models.DateTimeField('更新日時', auto_now=True)
     
     class Meta:
-        db_table = 'staff_profiles'
-        verbose_name = 'スタッフプロファイル'
-        verbose_name_plural = 'スタッフプロファイル'
+      db_table = 'staff_profiles'
+      verbose_name = 'スタッフプロファイル'
+      verbose_name_plural = 'スタッフプロファイル'
     
     def __str__(self):
-        return f"{self.user.email} - {self.position}"
+      name = f"{self.last_name} {self.first_name}".strip() or "名前未設定"
+      return f"{name} - {self.user.email}"
     
 class AustralianTaxInfo(models.Model):
   user = models.OneToOneField(

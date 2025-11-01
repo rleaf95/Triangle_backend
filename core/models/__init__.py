@@ -1,6 +1,7 @@
 from .user import User, UserManager, OwnerProfile, StaffProfile, AustralianTaxInfo, JapaneseTaxInfo
 from .organization import Company, Tenant, CompanyOwnership, TenantMembership
 from .permission import Role, Permission, UserRole, RolePermission
+from .invitation import StaffInvitation
 
 __all__ = [
     'User',
@@ -17,4 +18,5 @@ __all__ = [
     'Permission',
     'UserRole',
     'RolePermission',
+    'StaffInvitation',
 ]

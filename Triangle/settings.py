@@ -188,7 +188,7 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
@@ -212,22 +212,27 @@ SOCIALACCOUNT_PROVIDERS = {
       'access_type': 'online',
     },
     'APP': {
-      'client_id': config('GOOGLE_CLIENT_ID', default=''),
-      'secret': config('GOOGLE_CLIENT_SECRET', default=''),
+      'client_id': os.environ.get('GOOGLE_WEB_CLIENT_ID', ''),
+      'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
       'key': ''
     },
     'VERIFIED_EMAIL': True,
   },
   'apple': {
-      'APP': {
-        'client_id': config('APPLE_CLIENT_ID', default=''),
-        'secret': config('APPLE_CLIENT_SECRET', default=''),
-        'key': config('APPLE_KEY_ID', default=''),
-        'certificate_key': config('APPLE_PRIVATE_KEY_PATH', default=''),
-      },
-      'SCOPE': ['name', 'email'],
+    'APP': {
+      'client_id': config('APPLE_CLIENT_ID', default=''),
+      'secret': config('APPLE_CLIENT_SECRET', default=''),
+      'key': config('APPLE_KEY_ID', default=''),
+      'certificate_key': config('APPLE_PRIVATE_KEY_PATH', default=''),
+    },
+    'SCOPE': ['name', 'email'],
   }
 }
+
+# Google認証用の追加設定（ネイティブアプリ用）
+GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_WEB_CLIENT_ID', '')
+GOOGLE_IOS_CLIENT_ID = os.environ.get('GOOGLE_IOS_CLIENT_ID', '')
+GOOGLE_ANDROID_CLIENT_ID = os.environ.get('GOOGLE_ANDROID_CLIENT_ID', '')
 
 # カスタムアダプター
 SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
@@ -347,8 +352,9 @@ CSRF_COOKIE_HTTPONLY = False  # JavaScriptからアクセス可能に
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = config(
   'CSRF_TRUSTED_ORIGINS',
-  default='http://localhost:19006,http://localhost:8081'
+  default='http://localhost:19006,http://localhost:8081,http://localhost:3000'
 ).split(',')
+
 
 # ===== ロギング設定 =====
 
@@ -451,3 +457,4 @@ CELERY_TIMEZONE = TIME_ZONE
 # ===== その他 =====
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+FRONTEND_WEB_URL = os.environ.get('FRONTEND_URL', default='http://localhost:3000')
