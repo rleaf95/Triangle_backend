@@ -69,9 +69,10 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin,)
   id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ユーザーID')
   google_user_id = models.CharField( 'Google User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
   apple_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
-    
   email = models.EmailField( 'メールアドレス', unique=True, db_index=True, blank=True, )
   user_type = models.CharField( 'ユーザータイプ', max_length=10, choices=USER_TYPE_CHOICES)
+  profile_image = models.ImageField('プロフィール画像', upload_to='profiles/', blank=True, null=True )
+  profile_image_url = models.URLField( 'プロフィール画像URL', blank=True, help_text='ソーシャルログインの画像URL')
 
   # === User State === 
   is_active = models.BooleanField('アクティブ', default=True)
@@ -83,6 +84,7 @@ class User(AbstractBaseUser, SecurityMixin, TenantAccessMixin, PermissionMixin,)
   # === Datetime ===
   date_joined = models.DateTimeField('登録日時', default=timezone.now)
   last_login = models.DateTimeField('最終ログイン', null=True, blank=True)
+  updated_at = models.DateTimeField('更新日時', auto_now=True)
   
   # === セキュリティ関連 ===
   failed_login_attempts = models.IntegerField('ログイン失敗回数', default=0)
@@ -160,8 +162,6 @@ class OwnerProfile(models.Model):
   )
   first_name = models.CharField('名', max_length=50, blank=True)
   last_name = models.CharField('姓', max_length=50, blank=True)
-  updated_at = models.DateTimeField('更新日時', auto_now=True)
-  image = models.ImageField('User Image', blank=True, null=True)
   
   class Meta:
     db_table = 'owner_profiles'
@@ -187,12 +187,9 @@ class StaffProfile(models.Model):
     suburb = models.CharField('Suburb/市区町村', max_length=100, blank=True)
     state = models.CharField('州/都道府県', max_length=50)
     post_code = models.CharField('郵便番号', max_length=10)
-    country = models.CharField('国', max_length=2, choices=[('AU', 'Australia'), ('JP', 'Japan')])
     phone_number = models.CharField('電話番号', max_length=20, blank=True)
     hire_date = models.DateField('入社日', default=timezone.now)
     unemployed_date = models.DateField('退職日', blank=True, null=True)
-    is_active = models.BooleanField('在籍中', default=True)
-    updated_at = models.DateTimeField('更新日時', auto_now=True)
     
     class Meta:
       db_table = 'staff_profiles'
@@ -254,8 +251,6 @@ class JapaneseTaxInfo(models.Model):
 #     phone_number = models.CharField('電話番号', max_length=20, blank=True)
 #     birth_date = models.DateField('生年月日', null=True, blank=True)
 #     address = models.TextField('住所', blank=True)
-#     created_at = models.DateTimeField('作成日時', auto_now_add=True)
-#     updated_at = models.DateTimeField('更新日時', auto_now=True)
     
 #     class Meta:
 #         db_table = 'customer_profiles'
