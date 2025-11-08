@@ -25,7 +25,6 @@ INSTALLED_APPS = [
   'django.contrib.sites',  # django-allauthに必要
 
   # 自作アプリ
-  # 'Triangle',
   'core',
   
   # サードパーティアプリ
@@ -60,7 +59,7 @@ MIDDLEWARE = [
   'allauth.account.middleware.AccountMiddleware',
 ]
 
-ROOT_URLCONF = 'Triangle.urls'
+ROOT_URLCONF = 'meldish.urls'
 
 
 TEMPLATES = [
@@ -80,7 +79,7 @@ TEMPLATES = [
   },
 ]
 
-WSGI_APPLICATION = 'Triangle.wsgi.application'
+WSGI_APPLICATION = 'meldish.wsgi.application'
 
 
 # Database
@@ -458,3 +457,18 @@ CELERY_TIMEZONE = TIME_ZONE
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 FRONTEND_WEB_URL = os.environ.get('FRONTEND_URL', default='http://localhost:3000')
+
+if os.getenv("GITHUB_ACTIONS") == "true":
+  DATABASES = {
+    "default": {
+      "ENGINE": "django.db.backends.mysql",
+      "NAME": os.getenv("DB_NAME", "test_db"),
+      "USER": os.getenv("DB_USER", "user"),
+      "PASSWORD": os.getenv("DB_PASSWORD", "pass"),
+      "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+      "PORT": "3306",
+      "OPTIONS": {
+          "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+      },
+    }
+  }
