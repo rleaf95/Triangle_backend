@@ -34,66 +34,6 @@ class SecurityMixin:
       self.save(update_fields=['failed_login_attempts', 'account_locked_until'])
 
 
-# === 会社・テナント関連メソッド ===
-class TenantAccessMixin:
-
-  """所有する会社を取得（オーナー用）"""
-  def get_owned_companies(self):
-    from .organization import Company
-    if self.user_type != 'OWNER':
-      return Company.objects.none()
-    
-    return Company.objects.filter(
-      ownerships__owner=self,
-      ownerships__is_active=True,
-      is_active=True
-    ).distinct()
-  
-  """ 所属勤務先を取得（スタッフ用）"""
-  def get_tenant(self):
-    if self.user_type != 'STAFF':
-      return None
-    
-    from .organization import TenantMembership
-    membership = TenantMembership.objects.filter(
-      staff=self,
-      is_active=True
-    ).select_related('tenant')
-    
-    return membership.tenant if membership else None
-  
-  """所有する店舗を取得"""
-  def get_owned_tenants(self):
-    from .organization import Tenant
-
-    if self.is_system_admin:
-      return Tenant.objects.filter(is_active=True)
-    
-    if self.user_type == 'OWNER':
-      companies = self.get_owned_companies()
-      return Tenant.objects.filter(
-        company__in=companies,
-        is_active=True
-      )
-    elif self.user_type == 'CUSTOMER':
-      # TODO: Customer
-      return Tenant.objects.none()
-        
-    return Tenant.objects.none()
-  
-  """特定の店舗での所属情報を取得（スタッフ用）"""
-  #Tenant Objectを渡してフィルター
-  def get_tenant_membership(self, tenant):
-    if self.user_type != 'STAFF':
-      return None
-    from .organization import TenantMembership
-    return TenantMembership.objects.filter(
-      user=self,
-      tenant__in=tenant,
-      is_active=True
-    )
-  
-
 # === permission 関連メゾット（True or False)===
 class PermissionMixin:
   # === Django標準メソッド（管理画面用） ===

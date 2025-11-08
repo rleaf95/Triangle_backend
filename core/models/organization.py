@@ -1,7 +1,7 @@
 from django.db import models
 import uuid
-# from .user import User
 from django.utils import timezone
+from.organization_querysets import CompanyManager, TenantManager
 
 class Company(models.Model):
   id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -14,35 +14,16 @@ class Company(models.Model):
   is_active = models.BooleanField('アクティブ', default=True)
   created_at = models.DateTimeField('作成日時', auto_now_add=True)
   updated_at = models.DateTimeField('更新日時', auto_now=True)
+
+  #Custom Manager
+  objects = CompanyManager()
+
   class Meta:
     db_table = 'companies'
     verbose_name = 'Company'
     verbose_name_plural = 'Companies'
   def __str__(self):
     return self.name
-  
-  """アクティブなオーナーを取得"""
-  def get_active_owners(self):
-    return 'core.User'.objects.filter(
-      company_ownerships__company=self,
-      company_ownerships__is_active=True
-    ).distinct()
-
-  """全店舗のスタッフを取得"""
-  def get_all_staff(self):
-    return 'core.User'.objects.filter(
-      tenant__company=self,
-      user_type='STAFF',
-      is_active=True
-    )
-    
-  """全スタッフ数"""
-  def get_total_staff_count(self):
-    return self.get_all_staff().count()
-    
-  """店舗数"""
-  def get_tenant_count(self):
-    return self.tenants.filter(is_active=True).count()
           
 
 
@@ -69,6 +50,9 @@ class Tenant(models.Model):
     created_at = models.DateTimeField('作成日時', auto_now_add=True)
     updated_at = models.DateTimeField('更新日時', auto_now=True)
     is_active = models.BooleanField('Is active', default=True)
+
+    #Custom Manager
+    objects = TenantManager()
     
     class Meta:
       db_table = 'tenants'
@@ -83,14 +67,6 @@ class Tenant(models.Model):
     def __str__(self):
         return f"{self.name} ({self.code}) - {self.company.name}"
     
-    # def get_active_staff_count(self):
-    #     """アクティブなスタッフ数を取得"""
-    #     return self.users.filter(user_type='STAFF', is_active=True).count()
-    
-    # def get_monthly_revenue(self, year, month):
-    #     """月次売上を取得（将来的に実装）"""
-    #     # TODO: 売上データとの連携
-    #     pass
 
 class CompanyOwnership(models.Model):
   company = models.ForeignKey( Company, on_delete=models.CASCADE, related_name='ownerships')
@@ -139,7 +115,7 @@ class CompanyOwnership(models.Model):
 class TenantMembership(models.Model):
   tenant = models.ForeignKey( Tenant, on_delete=models.CASCADE, related_name='memberships')
   user = models.ForeignKey( 'core.User', on_delete=models.CASCADE, related_name='tenant_memberships', limit_choices_to={'user_type': 'STAFF'} )
-  started_at = models.DateField('店舗に追加された日', default=timezone.now)
+  started_at = models.DateField('店舗スタート日', default=timezone.now)
   ended_at = models.DateField('店舗終了日', null=True, blank=True, help_text='退任・売却日')
   is_active = models.BooleanField('アクティブ', default=True)
   added_by = models.ForeignKey(
