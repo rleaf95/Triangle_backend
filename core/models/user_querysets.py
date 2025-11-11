@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from .organization_querysets import CompanyQuerySet
+from django.contrib.auth.models import BaseUserManager
 
 # ========================================
 # User関連のQuerySet
@@ -179,7 +180,7 @@ class UserQuerySet(models.QuerySet):
     )
 
 
-class UserManager(models.Manager):
+class UserManager(BaseUserManager):
   def get_queryset(self):
     """デフォルトのQuerySetをUserQuerySetに置き換え"""
     return UserQuerySet(self.model, using=self._db)

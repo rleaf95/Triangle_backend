@@ -29,3 +29,12 @@ staticfiles/
 .DS_Store
 Thumbs.db
 EOF
+
+*.txt
+
+# test
+.pytest_cache/
+.coverage
+htmlcov/
+*.pyc
+__pycache__/

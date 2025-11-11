@@ -72,14 +72,9 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
   auth_provider = models.CharField( '認証プロバイダー', max_length=20, default='email', choices=AUTH_PROVIDER_CHOICES )
     
   # === 国際化設定 ===
-  language = models.CharField('言語', max_length=10, choices=LANGUAGE_CHOICES, default='ja')
+  language = models.CharField('言語', max_length=10, choices=LANGUAGE_CHOICES, blank=True, null=True)
   country = models.CharField('国', max_length=2, choices=COUNTRY_CHOICES, blank=True, null=True )
-  timezone = models.CharField(
-      'タイムゾーン',
-      max_length=50,
-      choices=TIMEZONE_CHOICES,
-      default='Asia/Tokyo'
-  )
+  timezone = models.CharField('タイムゾーン', max_length=50, choices=TIMEZONE_CHOICES, blank=True, null=True)
     
   objects = UserManager()
     

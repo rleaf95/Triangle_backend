@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
-from .organization import Company
 
 # ========================================
 # Company関連のQuerySet
@@ -154,6 +153,7 @@ class TenantQuerySet(models.QuerySet):
     
   # === アクセス制御 ===
   def accessible_by(self, user):
+    from .organization import Company
     """ユーザーがアクセス可能なテナント"""
     if user.is_system_admin:
         return self.active()

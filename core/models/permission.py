@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .organization import Tenant
+from .permission_querysets import RolePermissionManager, RoleManager, UserRoleManager, PermissionManager
 
 User = get_user_model()
 
@@ -21,6 +22,8 @@ class Role(models.Model):
   is_active = models.BooleanField('有効', default=True)
   created_at = models.DateTimeField('作成日時', auto_now_add=True)
   updated_at = models.DateTimeField('更新日時', auto_now=True)
+
+  objects = RoleManager()
   
   class Meta:
     db_table = 'roles'
@@ -38,34 +41,36 @@ class Role(models.Model):
 
 """権限モデル全テナント共通（グローバル）"""
 class Permission(models.Model):
-    CATEGORY_CHOICES = [
-        ('reservation', '予約管理'),
-        ('pos', 'POS/販売'),
-        ('inventory', '在庫管理'),
-        ('staff', 'スタッフ管理'),
-        ('customer', '顧客管理'),
-        ('report', 'レポート'),
-        ('settings', '設定'),
-    ]
-    id = models.AutoField(primary_key=True)
-    code = models.CharField('権限コード', max_length=100, unique=True, db_index=True)
-    name = models.CharField('権限名', max_length=100)
-    category = models.CharField('カテゴリ', max_length=50, choices=CATEGORY_CHOICES)
-    description = models.TextField('説明', blank=True)
-    is_active = models.BooleanField('有効', default=True)
-    created_at = models.DateTimeField('作成日時', auto_now_add=True)
-    updated_at = models.DateTimeField('更新日時', auto_now=True)
-    class Meta:
-        db_table = 'permissions'
-        verbose_name = 'Permission'
-        verbose_name_plural = 'Permissions'
-        ordering = ['category', 'code']
-        indexes = [
-            models.Index(fields=['category', 'code']),
-        ]
-    
-    def __str__(self):
-        return f"{self.name} ({self.code})"
+  CATEGORY_CHOICES = [
+    ('reservation', '予約管理'),
+    ('pos', 'POS/販売'),
+    ('inventory', '在庫管理'),
+    ('staff', 'スタッフ管理'),
+    ('customer', '顧客管理'),
+    ('report', 'レポート'),
+    ('settings', '設定'),
+  ]
+  id = models.AutoField(primary_key=True)
+  code = models.CharField('権限コード', max_length=100, unique=True, db_index=True)
+  name = models.CharField('権限名', max_length=100)
+  category = models.CharField('カテゴリ', max_length=50, choices=CATEGORY_CHOICES)
+  description = models.TextField('説明', blank=True)
+  is_active = models.BooleanField('有効', default=True)
+  created_at = models.DateTimeField('作成日時', auto_now_add=True)
+  updated_at = models.DateTimeField('更新日時', auto_now=True)
+  objects = PermissionManager()
+
+  class Meta:
+      db_table = 'permissions'
+      verbose_name = 'Permission'
+      verbose_name_plural = 'Permissions'
+      ordering = ['category', 'code']
+      indexes = [
+          models.Index(fields=['category', 'code']),
+      ]
+  
+  def __str__(self):
+      return f"{self.name} ({self.code})"
 
 """ユーザーとロールの多対多関係"""
 class UserRole(models.Model):
@@ -90,6 +95,8 @@ class UserRole(models.Model):
   )
   granted_at = models.DateTimeField('付与日時', auto_now_add=True)
   reason = models.TextField('付与理由', blank=True)
+  objects = UserRoleManager()
+
   
   class Meta:
     db_table = 'user_roles'
@@ -133,7 +140,7 @@ class RolePermission(models.Model):
       verbose_name='付与者'
   )
   granted_at = models.DateTimeField('付与日時', auto_now_add=True)
-  
+  objects = RolePermissionManager()
   class Meta:
       db_table = 'role_permissions'
       verbose_name = 'Role Permission'

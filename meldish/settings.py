@@ -187,6 +187,7 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
@@ -234,8 +235,11 @@ GOOGLE_IOS_CLIENT_ID = os.environ.get('GOOGLE_IOS_CLIENT_ID', '')
 GOOGLE_ANDROID_CLIENT_ID = os.environ.get('GOOGLE_ANDROID_CLIENT_ID', '')
 
 # カスタムアダプター
-SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
-ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
+SOCIALACCOUNT_FORMS = {
+  'signup': 'your_app.forms.CustomSocialSignupForm',
+}
+SOCIALACCOUNT_ADAPTER = 'core.adapters.allauth_adapters.CustomSocialAccountAdapter'
+ACCOUNT_ADAPTER = 'core.adapters.allauth_adapters.CustomAccountAdapter'
 
 # ===== REST Framework設定 =====
 
