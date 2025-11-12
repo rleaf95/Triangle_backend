@@ -1,23 +1,19 @@
+from .auth import (
+  ValidateInvitationSerializer,
+  SignupSerializer,
+  EmailConfirmSerializer,
+  SocialLoginSerializer,
+)
 from .user import (
   UserSerializer,
-  UserDetailSerializer,
-  UserRegistrationSerializer,
-  EmailLoginSerializer,
-)
-from .profile import (
-  OwnerProfileSerializer,
-  StaffProfileSerializer,
-  ProfileCompletionSerializer,
-  ProfileImageUploadSerializer,
+  ProfileSerializer,
 )
 
 __all__ = [
+  'ValidateInvitationSerializer',
+  'SignupSerializer',
+  'EmailConfirmSerializer',
+  'SocialLoginSerializer',
   'UserSerializer',
-  'UserDetailSerializer',
-  'UserRegistrationSerializer',
-  'EmailLoginSerializer',
-  'OwnerProfileSerializer',
-  'StaffProfileSerializer',
-  'ProfileCompletionSerializer',
-  'ProfileImageUploadSerializer',
+  'ProfileSerializer',
 ]

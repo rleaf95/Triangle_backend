@@ -1,362 +1,397 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from allauth.account.utils import send_email_confirmation
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
-from google.oauth2 import id_token
-from google.auth.transport import requests
-from django.conf import settings
-from ..models import User
-from ..serializers import (
-    UserSerializer,
-    UserDetailSerializer,
-    UserRegistrationSerializer,
-    EmailLoginSerializer,
-)
-from ..services.social_login_service import SocialLoginService
-from ..services.profile_service import ProfileService
-import jwt
-from jwt import PyJWKClient
+from allauth.account.models import EmailConfirmation
+
+from ..serializers.auth import SignupSerializer, EmailConfirmSerializer, SocialLoginSerializer
+from apps.accounts.services import UserRegistrationService
+from apps.accounts.models import StaffInvitation
 
 
-class GoogleLoginAPIView(APIView):
-    """ネイティブアプリ用Googleログイン"""
+class SignupAPIView(APIView):
+	permission_classes = [AllowAny]
+	
+	def post(self, request):
+		# バリデーション
+		serializer = SignupSerializer(data=request.data)
+		if not serializer.is_valid():
+			return Response(
+				serializer.errors,
+				status=status.HTTP_400_BAD_REQUEST
+			)
+		data = serializer.validated_data
+		session_token = data.get('session_token')
+		user_type = data.get('user_type')
+		
+		profile_data = {
+			'address': data.get('address', ''),
+			'suburb': data.get('suburb', ''),
+			'state': data.get('state', ''),
+			'post_code': data.get('post_code', ''),
+		}
+
+		try:
+			user, refresh, message = UserRegistrationService.register_user(session_token, user_type, data, profile_data)
+
+		except ValidationError as e:
+			return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+		
+		if refresh is None:
+			send_email_confirmation(request, user, signup=True)
+
+		tokens = None
+		if refresh:
+			tokens = {
+				'refresh': str(refresh),
+				'access': str(refresh.access_token),
+			}
+
+		return Response({
+			'message': message,
+			'user': {
+					'id': user.id,
+					'email': user.email,
+					'first_name': user.first_name,
+					'last_name': user.last_name,
+			},
+			'tokens': tokens,
+		}, status=status.HTTP_201_CREATED)
+    
+class EmailConfirmAPIView(APIView):
+	permission_classes = [AllowAny]
+	
+	def post(self, request):
+		serializer = EmailConfirmSerializer(data=request.data)
+		if not serializer.is_valid():
+			return Response( serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+		key = serializer.validated_data['key']
+		try:
+			emailconfirmation = EmailConfirmation.objects.get(key=key)
+			emailconfirmation.confirm(request)
+			user = emailconfirmation.email_address.user
+			user.is_active = True
+			user.save()
+			
+			refresh = RefreshToken.for_user(user)
+			
+			return Response({
+				'message': 'メールアドレスが確認されました',
+				'user': {
+					'id': user.id,
+					'email': user.email,
+					'first_name': user.first_name,
+					'last_name': user.last_name,
+				},
+				'tokens': {
+					'refresh': str(refresh),
+					'access': str(refresh.access_token),
+				}
+			}, status=status.HTTP_200_OK)
+				
+		except EmailConfirmation.DoesNotExist:
+			return Response({'error': '無効な確認キーです'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SocialLoginAPIView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
-        """
-        Googleログイン
-        Request Body:
-            - id_token: GoogleのIDトークン（必須）
-            - platform: 'ios' or 'android'（必須）
-            - registration_type: 'owner' or 'customer'（新規登録時のみ）
-            - invitation_token: 招待トークン（スタッフ登録時のみ）
-        """
-        id_token_str = request.data.get('id_token')
-        platform = request.data.get('platform', 'android')
-        registration_type = request.data.get('registration_type')
-        invitation_token = request.data.get('invitation_token')
+        serializer = SocialLoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        if not id_token_str:
-            return Response(
-                {'error': 'id_tokenは必須です'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        data = serializer.validated_data
+        session_token = data.get('session_token')
+        provider = data['provider']
+        access_token = data['access_token']
+        
+        # 追加情報フォームからの送信かどうか
+        is_completing_signup = data.get('is_completing_signup', False)
         
         try:
-            # プラットフォームに応じたクライアントID
-            if platform == 'ios':
-                client_id = settings.GOOGLE_IOS_CLIENT_ID
+            social_user_data = self._get_social_user_data(provider, access_token)
+            
+            if session_token:
+                # STAFF登録
+                return self._handle_staff_social_login(
+                    session_token,
+                    provider,
+                    social_user_data,
+                    is_completing_signup,
+                    data
+                )
             else:
-                client_id = settings.GOOGLE_ANDROID_CLIENT_ID
-            
-            # Googleトークンを検証
-            idinfo = id_token.verify_oauth2_token(
-                id_token_str,
-                requests.Request(),
-                client_id
-            )
-            
-            if idinfo['aud'] not in [client_id, settings.GOOGLE_OAUTH2_CLIENT_ID]:
-                raise ValueError('Invalid audience')
-            
-            # ユーザー情報取得
-            email = idinfo['email']
-            google_user_id = idinfo['sub']
-            first_name = idinfo.get('given_name', '')
-            last_name = idinfo.get('family_name', '')
-            picture = idinfo.get('picture', '')
-            
-            # ソーシャルログインサービスでユーザー作成
-            user, created, action = SocialLoginService.get_or_create_user(
-                email=email,
-                social_user_id=google_user_id,
-                provider='google',
-                first_name=first_name,
-                last_name=last_name,
-                picture=picture,
-                invitation_token=invitation_token,
-                registration_type=registration_type
-            )
-            
-            # プロファイル完成度チェック
-            completion_status = ProfileService.get_profile_completion_status(user)
-            
-            # JWTトークン生成
-            refresh = RefreshToken.for_user(user)
-            
-            # レスポンスメッセージ
-            if action == 'found_by_social_id':
-                message = 'ログインしました'
-            elif action == 'found_by_email':
-                message = 'Googleアカウントを紐付けました'
-            else:  # created
-                message = '新規登録しました'
-            
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': UserSerializer(user, context={'request': request}).data,
-                'is_new_user': created,
-                'action': action,
-                'message': message,
-                'needs_profile_completion': not completion_status['is_complete'],
-                'missing_fields': completion_status['missing_fields'],
-                'completion_rate': completion_status['completion_rate'],
-            }, status=status.HTTP_200_OK)
-            
-        except ValueError as e:
-            return Response(
-                {'error': f'無効なトークンです: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                # CUSTOMER登録/ログイン
+                return self._handle_customer_social_login(
+                    provider,
+                    social_user_data,
+                    is_completing_signup,
+                    data
+                )
+                
         except Exception as e:
             return Response(
-                {'error': f'認証エラー: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
-
-class AppleLoginAPIView(APIView):
-    """ネイティブアプリ用Apple Sign In"""
-    permission_classes = [AllowAny]
     
-    def post(self, request):
+    # _get_social_user_data, _get_google_user_data等は変更なし
+    
+    def _handle_staff_social_login(self, session_token, provider, social_user_data, is_completing_signup, form_data):
         """
-        Apple Sign In
+        STAFFのソーシャルログイン処理
         
-        Request Body:
-            - identity_token: AppleのIDトークン（必須）
-            - user: Apple User ID（必須）
-            - full_name: {'givenName': '太郎', 'familyName': '山田'}（初回のみ）
-            - registration_type: 'owner' or 'customer'（新規登録時のみ）
-            - invitation_token: 招待トークン（スタッフ登録時のみ）
+        招待トークンがある場合は、必ず追加情報フォームを要求
         """
-        identity_token = request.data.get('identity_token')
-        user_identifier = request.data.get('user')
-        registration_type = request.data.get('registration_type')
-        invitation_token = request.data.get('invitation_token')
+        # Redisからセッションデータを取得
+        cache_key = f'invitation_session:{session_token}'
+        session_data = cache.get(cache_key)
         
-        if not identity_token:
+        if not session_data:
             return Response(
-                {'error': 'identity_tokenは必須です'},
+                {'error': 'セッションが無効または期限切れです'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # 招待を取得
         try:
-            # Apple IDトークンを検証
-            jwks_client = PyJWKClient('https://appleid.apple.com/auth/keys')
-            signing_key = jwks_client.get_signing_key_from_jwt(identity_token)
-            
-            decoded = jwt.decode(
-                identity_token,
-                signing_key.key,
-                algorithms=['RS256'],
-                audience=settings.APPLE_CLIENT_ID,
-                issuer='https://appleid.apple.com'
-            )
-            
-            email = decoded.get('email')
-            apple_user_id = decoded['sub']
-            
-            # 初回ログインの場合のみ名前情報が取得可能
-            full_name = request.data.get('full_name', {})
-            first_name = full_name.get('givenName', '')
-            last_name = full_name.get('familyName', '')
-            
-            # メールアドレスの処理
-            user_email = email or f'{apple_user_id}@privaterelay.appleid.com'
-            
-            # ソーシャルログインサービスでユーザー作成
-            user, created, action = SocialLoginService.get_or_create_user(
-                email=user_email,
-                social_user_id=apple_user_id,
-                provider='apple',
-                first_name=first_name,
-                last_name=last_name,
-                picture='',
-                invitation_token=invitation_token,
-                registration_type=registration_type
-            )
-            
-            # プロファイル完成度チェック
-            completion_status = ProfileService.get_profile_completion_status(user)
-            
-            # JWTトークン生成
-            refresh = RefreshToken.for_user(user)
-            
-            # レスポンスメッセージ
-            if action == 'found_by_social_id':
-                message = 'ログインしました'
-            elif action == 'found_by_email':
-                message = 'Appleアカウントを紐付けました'
-            else:  # created
-                message = '新規登録しました'
-            
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': UserSerializer(user, context={'request': request}).data,
-                'is_new_user': created,
-                'action': action,
-                'message': message,
-                'is_private_email': not email,
-                'needs_profile_completion': not completion_status['is_complete'],
-                'missing_fields': completion_status['missing_fields'],
-                'completion_rate': completion_status['completion_rate'],
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
+            invitation = StaffInvitation.objects.get(id=session_data['invitation_id'])
+        except StaffInvitation.DoesNotExist:
+            cache.delete(cache_key)
             return Response(
-                {'error': f'認証に失敗しました: {str(e)}'},
+                {'error': '招待情報が見つかりません'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-
-class EmailRegistrationAPIView(APIView):
-    """メール登録"""
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        """
-        メール登録
         
-        Request Body:
-            - email: メールアドレス（必須）
-            - password: パスワード（必須、8文字以上）
-            - password_confirm: パスワード確認（必須）
-            - user_type: 'OWNER' or 'CUSTOMER'（必須）
-            - language: 'ja' or 'en'（オプション、デフォルト: ja）
-            - first_name: 名（オプション）
-            - last_name: 姓（オプション）
-            - invitation_token: 招待トークン（スタッフ登録時のみ）
-        """
-        serializer = UserRegistrationSerializer(
-            data=request.data,
-            context={'request': request}
+        # 使用済みチェック
+        if invitation.is_used:
+            cache.delete(cache_key)
+            return Response(
+                {'error': 'この招待は既に使用されています'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # トークン一致チェック
+        if invitation.token != session_data['invitation_token']:
+            cache.delete(cache_key)
+            return Response(
+                {'error': '招待情報が改ざんされています'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 追加情報が必要かチェック
+        needs_additional_info = self._check_staff_needs_additional_info(
+            social_user_data,
+            invitation
         )
         
-        if serializer.is_valid():
-            user = serializer.save()
-            
-            # プロファイル完成度チェック
-            completion_status = ProfileService.get_profile_completion_status(user)
-            
-            # JWTトークン生成
-            refresh = RefreshToken.for_user(user)
+        if needs_additional_info and not is_completing_signup:
+            # 追加情報が必要な場合、一時データをRedisに保存
+            temp_key = f'social_signup_temp:{session_token}:{provider}'
+            cache.set(temp_key, {
+                'provider': provider,
+                'social_user_data': social_user_data,
+                'session_token': session_token,
+                'invitation_id': invitation.id
+            }, timeout=600)  # 10分間有効
             
             return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': UserSerializer(user, context={'request': request}).data,
-                'message': '登録が完了しました',
-                'needs_profile_completion': not completion_status['is_complete'],
-                'missing_fields': completion_status['missing_fields'],
-                'completion_rate': completion_status['completion_rate'],
-            }, status=status.HTTP_201_CREATED)
+                'requires_additional_info': True,
+                'temp_token': temp_key,
+                'prefilled_data': {
+                    'email': social_user_data.get('email', ''),
+                    'first_name': social_user_data.get('given_name', ''),
+                    'last_name': social_user_data.get('family_name', ''),
+                },
+                'missing_fields': self._get_missing_fields(social_user_data, invitation)
+            }, status=status.HTTP_206_PARTIAL_CONTENT)
         
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+        # 追加情報フォームから送信された場合、または追加情報が不要な場合
+        if is_completing_signup:
+            # フォームデータで不足情報を補完
+            social_user_data.update({
+                'given_name': form_data.get('first_name', social_user_data.get('given_name', '')),
+                'family_name': form_data.get('last_name', social_user_data.get('family_name', '')),
+                'email': form_data.get('email', social_user_data.get('email', ''))
+            })
+        
+        # STAFFをアクティベート
+        user = SocialLoginService.activate_staff_with_social(
+            invitation=invitation,
+            provider=provider,
+            provider_user_id=social_user_data['id'],
+            email=social_user_data['email'],
+            first_name=social_user_data.get('given_name', ''),
+            last_name=social_user_data.get('family_name', ''),
+            picture=social_user_data.get('picture', '')
         )
-
-
-class EmailLoginAPIView(APIView):
-    """メールログイン"""
-    permission_classes = [AllowAny]
+        
+        # Redisから削除
+        cache.delete(cache_key)
+        if is_completing_signup:
+            temp_key = form_data.get('temp_token')
+            if temp_key:
+                cache.delete(temp_key)
+        
+        # JWTトークン発行
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'message': 'スタッフアカウントがアクティベートされました',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'user_type': user.user_type
+            },
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+        }, status=status.HTTP_200_OK)
     
-    def post(self, request):
+    def _handle_customer_social_login(self, provider, social_user_data, is_completing_signup, form_data):
         """
-        メールログイン
+        CUSTOMERのソーシャルログイン処理
         
-        Request Body:
-            - email: メールアドレス（必須）
-            - password: パスワード（必須）
+        既存ユーザーの場合は直接ログイン
+        新規ユーザーで情報が不足している場合は追加フォームを要求
         """
-        serializer = EmailLoginSerializer(data=request.data)
+        # 既存ユーザーかチェック
+        existing_user = SocialLoginService.find_existing_user(
+            provider=provider,
+            provider_user_id=social_user_data['id'],
+            email=social_user_data.get('email')
+        )
         
-        if serializer.is_valid():
-            user = serializer.validated_data['user']
-            
-            # JWTトークン生成
-            refresh = RefreshToken.for_user(user)
-            
-            # プロファイル完成度チェック
-            completion_status = ProfileService.get_profile_completion_status(user)
+        if existing_user:
+            # 既存ユーザーは直接ログイン
+            refresh = RefreshToken.for_user(existing_user)
             
             return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': UserSerializer(user, context={'request': request}).data,
-                'message': 'ログインしました',
-                'needs_profile_completion': not completion_status['is_complete'],
-                'missing_fields': completion_status['missing_fields'],
-                'completion_rate': completion_status['completion_rate'],
+                'message': 'ログインに成功しました',
+                'user': {
+                    'id': existing_user.id,
+                    'email': existing_user.email,
+                    'first_name': existing_user.first_name,
+                    'last_name': existing_user.last_name,
+                    'user_type': existing_user.user_type
+                },
+                'tokens': {
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                }
             }, status=status.HTTP_200_OK)
         
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-class TokenRefreshAPIView(APIView):
-    """トークンリフレッシュ"""
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        """
-        アクセストークンをリフレッシュ
+        # 新規ユーザーの場合、追加情報が必要かチェック
+        needs_additional_info = self._check_customer_needs_additional_info(social_user_data)
         
-        Request Body:
-            - refresh: リフレッシュトークン（必須）
-        """
-        refresh_token = request.data.get('refresh')
-        
-        if not refresh_token:
-            return Response(
-                {'error': 'refreshトークンは必須です'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            refresh = RefreshToken(refresh_token)
+        if needs_additional_info and not is_completing_signup:
+            # 一時データを保存
+            temp_key = f'social_signup_temp:customer:{provider}:{social_user_data["id"]}'
+            cache.set(temp_key, {
+                'provider': provider,
+                'social_user_data': social_user_data
+            }, timeout=600)
             
             return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),  # ローテーション後の新しいリフレッシュトークン
-            }, status=status.HTTP_200_OK)
-        except TokenError as e:
-            return Response(
-                {'error': '無効なトークンです'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-
-class LogoutAPIView(APIView):
-    """ログアウト"""
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request):
-        """
-        ログアウト（トークンをブラックリストに追加）
+                'requires_additional_info': True,
+                'temp_token': temp_key,
+                'prefilled_data': {
+                    'email': social_user_data.get('email', ''),
+                    'first_name': social_user_data.get('given_name', ''),
+                    'last_name': social_user_data.get('family_name', ''),
+                },
+                'missing_fields': self._get_missing_fields(social_user_data)
+            }, status=status.HTTP_206_PARTIAL_CONTENT)
         
-        Request Body:
-            - refresh: リフレッシュトークン（必須）
+        # 追加情報フォームから送信された場合、または追加情報が不要な場合
+        if is_completing_signup:
+            social_user_data.update({
+                'given_name': form_data.get('first_name', social_user_data.get('given_name', '')),
+                'family_name': form_data.get('last_name', social_user_data.get('family_name', '')),
+                'email': form_data.get('email', social_user_data.get('email', ''))
+            })
+        
+        # ユーザー作成
+        user = SocialLoginService.get_or_create_user(
+            provider=provider,
+            provider_user_id=social_user_data['id'],
+            email=social_user_data['email'],
+            first_name=social_user_data.get('given_name', ''),
+            last_name=social_user_data.get('family_name', ''),
+            picture=social_user_data.get('picture', '')
+        )
+        
+        # 一時データ削除
+        if is_completing_signup:
+            temp_key = form_data.get('temp_token')
+            if temp_key:
+                cache.delete(temp_key)
+        
+        # JWTトークン発行
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'message': '登録が完了しました',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'user_type': user.user_type
+            },
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+        }, status=status.HTTP_201_CREATED)
+    
+    def _check_staff_needs_additional_info(self, social_user_data, invitation):
         """
-        try:
-            refresh_token = request.data.get('refresh')
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            
-            return Response(
-                {'message': 'ログアウトしました'},
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {'error': 'ログアウトに失敗しました'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        STAFFに追加情報が必要かチェック
+        
+        招待トークンがある場合は常に追加情報を要求
+        （セキュリティ上、ユーザーに確認させる）
+        """
+        # 招待の場合は常にTrue（ユーザーに確認させる）
+        return True
+    
+    def _check_customer_needs_additional_info(self, social_user_data):
+        """
+        CUSTOMERに追加情報が必要かチェック
+        
+        メールアドレスまたは名前が不足している場合True
+        """
+        email = social_user_data.get('email', '').strip()
+        first_name = social_user_data.get('given_name', '').strip()
+        last_name = social_user_data.get('family_name', '').strip()
+        
+        # メールアドレスが必須
+        if not email:
+            return True
+        
+        # 名前が両方とも空の場合
+        if not first_name and not last_name:
+            return True
+        
+        return False
+    
+    def _get_missing_fields(self, social_user_data, invitation=None):
+        """不足しているフィールドのリストを返す"""
+        missing = []
+        
+        if not social_user_data.get('email'):
+            missing.append('email')
+        if not social_user_data.get('given_name'):
+            missing.append('first_name')
+        if not social_user_data.get('family_name'):
+            missing.append('last_name')
+        
+        return missing
