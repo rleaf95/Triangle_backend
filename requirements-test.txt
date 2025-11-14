@@ -7,3 +7,4 @@ faker==20.1.0
 freezegun==1.4.0
 Django==5.0
 django-allauth==0.57.0
+python-decouple
