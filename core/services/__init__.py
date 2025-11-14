@@ -7,10 +7,14 @@ from .user_registration_service import (
 from .social_login_service import (
   SocialLoginService
 )
+from .registration_utils_service import (
+  RegistrationUtilsService
+)
 
 
 __all__ = [
   'ProfileService',
   'UserRegistrationService',
-  'SocialLoginService'
+  'SocialLoginService',
+  'RegistrationUtilsService'
 ]

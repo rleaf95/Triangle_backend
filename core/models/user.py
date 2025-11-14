@@ -31,19 +31,21 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
     ('Australia/Adelaide', 'オーストラリア中部標準時 (ACST) - アデレード'),
   )
   AUTH_PROVIDER_CHOICES = (
-      ('email', 'メール'),
-      ('google', 'Google'),
-      ('apple', ('Apple')),
+    ('email', 'メール'),
+    ('google', 'Google'),
+    ('line','Line'),
+    ('facebook','Facebook')
   )
     
   # === Base  ===
   id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ユーザーID')
   google_user_id = models.CharField( 'Google User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
-  apple_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
+  line_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
+  facebook_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
   email = models.EmailField( 'メールアドレス', unique=True, db_index=True, blank=True, )
   user_type = models.CharField( 'ユーザータイプ', max_length=10, choices=USER_TYPE_CHOICES)
   profile_image = models.ImageField('プロフィール画像', upload_to='profiles/', blank=True, null=True )
-  profile_image_url = models.URLField( 'プロフィール画像URL', blank=True, help_text='ソーシャルログインの画像URL')
+  profile_image_url = models.URLField( 'プロフィール画像URL', blank=True, null=True, help_text='ソーシャルログインの画像URL')
   first_name = models.CharField('名', max_length=50, blank=True)
   last_name = models.CharField('姓', max_length=50, blank=True)
   phone_number = models.CharField('電話番号', max_length=20, blank=True, null=True)
@@ -90,11 +92,13 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
       models.Index(fields=['is_active', 'user_type']),
     ]
   def __str__(self):
+
     if self.user_type == 'STAFF':
-      tenants = self.get_all_tenants()
+      from .organization import Tenant
+      tenants = Tenant.objects.with_member(self)
       tenant_name = f"{tenants.count()}店舗に所属" if tenants.exists() else '所属なし'
     elif self.user_type == 'OWNER':
-      from .company import Company
+      from .organization import Company
       companies = Company.objects.owned_by(self)
       tenant_name = f"{companies.count()}社を経営" if companies.exists() else '会社なし'
     else:
@@ -202,3 +206,20 @@ class JapaneseTaxInfo(models.Model):
 #     @property
 #     def full_name(self):
 #         return f"{self.last_name} {self.first_name}"
+
+class StaffRegistrationProgress(models.Model):
+  user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_progress',)
+  step = models.CharField(max_length=50, choices=[
+    ('basic_info', '基本情報'),
+    ('profile', 'プロフィール'),
+    ('done', '完了'),
+  ])
+
+
+class CustomerRegistrationProgress(models.Model):
+  user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='customer_progress',)
+  step = models.CharField(max_length=50, choices=[
+    ('basic_info', '基本情報'),
+    ('detail', '詳細'),
+    ('done', '完了'),
+  ])

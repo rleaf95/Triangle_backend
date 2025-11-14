@@ -7,6 +7,7 @@ print("\n" + "=" * 80)
 print("Loading settings_test.py")
 print("=" * 80)
 
+
 # ===================================
 # Database - SQLiteに強制変更
 # ===================================
@@ -36,14 +37,15 @@ PASSWORD_HASHERS = [
 # ===================================
 # Email - テスト用バックエンド
 # ===================================
-EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # ===================================
 # Cache - ダミーキャッシュ
 # ===================================
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
 
@@ -63,5 +65,7 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+
 
 print("=" * 80 + "\n")

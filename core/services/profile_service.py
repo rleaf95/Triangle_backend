@@ -18,15 +18,22 @@ class ProfileService:
     
   """スタッフプロファイルを取得または作成"""
   @staticmethod
-  def get_or_create_staff_profile(user, **defaults):
-    if user.user_type != 'STAFF':
-      raise ValueError('このユーザーはスタッフではありません')
+  def get_or_create_staff_profile(user, profile_data):
+    profile = user.staff_profile  # キャッシュから取得
+    if profile_data:
+      for key, value in profile_data.items():
+        if hasattr(profile, key):
+          setattr(profile, key, value)
+      profile.save()
     
-    profile, created = StaffProfile.objects.get_or_create(
-      user=user,
-      defaults=defaults
-    )
-    return profile, created
+    progress = user.staff_progress
+
+    if profile_data and any(not value for value in profile_data.values()):
+      progress.step = 'profile'
+    progress.step = 'done'
+    progress.save()
+    
+    return profile
     
   """オーナープロファイルを更新"""
   # @staticmethod

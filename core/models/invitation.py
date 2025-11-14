@@ -21,6 +21,8 @@ class StaffInvitationQuerySet(models.QuerySet):
       is_used=False,
       expires_at__gt=timezone.now()
     )
+  def by_id(self, id):
+    return self.filter(id=id)
   
   def by_token(self, token):
     """トークンで検索"""
@@ -45,7 +47,6 @@ class StaffInvitationQuerySet(models.QuerySet):
   def expired(self):
     """期限切れの招待"""
     return self.filter(expires_at__lte=timezone.now())
-
 
 class StaffInvitationManager(models.Manager):
   """StaffInvitationモデル用のカスタムManager"""

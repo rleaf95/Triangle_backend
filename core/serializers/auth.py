@@ -36,7 +36,8 @@ class SocialLoginSerializer(serializers.Serializer):
   """ソーシャルログイン用Serializer"""
   provider = serializers.ChoiceField(choices=['google', 'line', 'facebook'])
   access_token = serializers.CharField(required=True)
-  session_token = serializers.CharField(required=False, allow_blank=True)
+  user_type = serializers.ChoiceField(required=True ,choices=["STAFF", "OWNER", "CUSTOMER"])
+  id_token = serializers.CharField(required=False)
 
   is_completing_signup = serializers.BooleanField(default=False)
   temp_token = serializers.CharField(required=False, allow_blank=True)

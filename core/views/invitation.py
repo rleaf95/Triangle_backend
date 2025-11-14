@@ -6,7 +6,7 @@ from django.core.cache import cache
 import secrets
 
 from ..serializers.auth import ValidateInvitationSerializer
-from ..services.user_registration_service import UserRegistrationService
+from ..services import UserRegistrationService, RegistrationUtilsService
 
 
 class ValidateInvitationAPIView(APIView):
@@ -23,7 +23,7 @@ class ValidateInvitationAPIView(APIView):
     invitation_token = serializer.validated_data['token']
     
     try:
-      invitation = UserRegistrationService.validate_invitation(invitation_token)
+      invitation = RegistrationUtilsService.validate_invitation(invitation_token)
       session_token = secrets.token_urlsafe(32)
       
       # Redisに保存（15分間有効）
@@ -32,14 +32,22 @@ class ValidateInvitationAPIView(APIView):
         'invitation_id': invitation.id,
         'invitation_token': invitation_token,
         'email': invitation.email,
+        'first_name': invitation.first_name,
+        'last_name' : invitation.last_name,
+        'company' : invitation.tenant.company.name,
+        'tenant' : invitation.tenant.name,
       }, timeout=900)
       
-      return Response({
-        'session_token': session_token,
-        'email': invitation.email,
-        'expires_in': 900,
-        'message': '招待が確認されました'
-      }, status=status.HTTP_200_OK)
+      return Response({ 
+        'session_token': session_token, 
+        'email': invitation.email, 
+        'first_name': invitation.first_name,
+        'last_name' : invitation.last_name,
+        'company' : invitation.tenant.company.name,
+        'tenant' : invitation.tenant.name,
+        'expires_in': 900, 
+        'message': '招待が確認されました' 
+      },status=status.HTTP_200_OK)
         
     except Exception as e:
       return Response( {'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

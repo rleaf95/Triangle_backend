@@ -1,212 +1,246 @@
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.utils import timezone
-from core.models import User
-from .user_registration_service import UserRegistrationService
-from .profile_service import ProfileService
-
+import requests, jwt
+import requests
+from core.models import User, CustomerRegistrationProgress
+from .user_registration_service import  RegistrationUtilsService
+from django.core.cache import cache
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Q
 
 class SocialLoginService:
   """ソーシャルログイン専用サービス"""
   
-  @staticmethod
+  @classmethod
   @transaction.atomic
-  def get_or_create_user(validated_user_type, provider, uid, social_data, form_data=None, invitation=None):
+  def get_or_create_user( cls, user_type, access_token, provider, session_token=None, id_token=None):
 
-    existing_user = User.objects.find_by_social_id(provider, uid)
-    email = social_data['email']
-    picture = social_data['picture']
-    user_id_field = f'{provider}_user_id'
-
-    if existing_user:
-      if existing_user.email != email:
-        existing_user.email = email
-        existing_user.save(update_fields=['email'])
-        return existing_user, False, f'{provider.capitalize()}アカウントでログインしました'
-    elif validated_user_type == 'STAFF':
-      if invitation:
-        registered_user, created, message = SocialLoginService._activate_staff_user_with_social(
-          invitation=invitation,
-          provider=provider,
-          uid=uid,
-          social_data=social_data, 
-          form_data=form_data, 
-        )
-        UserRegistrationService.process_invitation(invitation, registered_user)
-        return registered_user, created, message
-      else:
-        raise ValidationError("スタッフでの登録には招待が必要です")
+    if provider == 'google':
+      social_user_data = cls._get_google_user_data(access_token)
+    elif provider == 'line':
+      social_user_data = cls._get_line_user_data(access_token, id_token)
+    elif provider == 'facebook':
+      social_user_data = cls._get_facebook_user_data(access_token)
     else:
-      if email:
-        existing_user_by_email = User.objects.find_by_email(email)
-        if existing_user_by_email:
-          setattr(existing_user_by_email, user_id_field, uid)
-          existing_user_by_email.auth_provider = provider
-          update_fields = [user_id_field, 'auth_provider']
+      raise ValueError(f"未対応のプロバイダー: {provider}")
+    
+    social_id = social_user_data['id']
+    email = social_user_data['email']
+    picture = social_user_data.get('picture', '')
+    user_id_field = f'{provider}_user_id'
+    email_verified = social_user_data['email_verified']
+    existing_user = User.objects.filter(Q(**{user_id_field: social_id}) | Q(email=email)).first()
 
-          if picture and not existing_user_by_email.profile_image_url:
-            existing_user_by_email.profile_image_url = picture
-            update_fields.append('profile_image_url')
+    ## 1 既存ユーザーあり
+    if existing_user:
+      existing_social_id = getattr(existing_user, user_id_field, None)
 
-          existing_user_by_email.save(update_fields=update_fields)
-          return existing_user_by_email, False, f'{provider.capitalize()}アカウントを追加しましたしました'
-        else:
-          registered_user, created, message = SocialLoginService._create_new_user_with_social(
-            validated_user_type,
-            provider=provider,
-            uid=uid,
-            social_data=social_data,
-            invitation=invitation
-          )
-          registered_user.set_unusable_password()
-          return registered_user, created, message
+      # ケース1-1: 既に同じソーシャルアカウントが紐づいている
+      if existing_social_id == social_id:
+        return cls._handle_existing_social_user(existing_user, email, provider, picture, email_verified)
+      
+      # ケース1-2: 別のソーシャルアカウントが紐づいている
+      elif existing_social_id:
+        raise ValidationError( f'既に別の{provider.capitalize()}アカウントが紐づいています')
+      
+      # ケース1-3: ソーシャルアカウント未紐付け
       else:
-        raise ValidationError("ユーザー情報を取得できませんでした。")
-        #別のアカウント、social mediaを試してもらうか、email登録
+        # スタッフの招待アクティベート
+        if session_token and user_type == 'STAFF':
+          return cls._handle_activate_social( session_token, provider, social_user_data )
+        
+        # 既存ユーザーにソーシャルアカウントを追加
+        return cls._add_social_to_existing_user(existing_user, provider, social_id, picture, email_verified)
+    
+    # 2. 既存ユーザーなし → 新規登録
+    else:
+      if user_type in ['CUSTOMER', 'OWNER']:
+        return cls._handle_signup_social(user_type, provider, social_user_data)
+      else:
+        raise ValidationError("スタッフの登録には招待が必要です。")
+      
+  @classmethod
+  def _check_existing_user(cls, user, provider, picture, email_verified ):
+    update_fields = []
+
+    if user.auth_provider != provider:
+      user.auth_provider = provider
+      update_fields.append('auth_provider')
+    
+    if picture and not user.profile_image_url:
+      user.profile_image_url = picture
+      update_fields.append('profile_image_url')
+    
+    if not user.is_active:
+      user.is_email_verified = email_verified
+      user.is_active = email_verified
+      update_fields.append('is_email_verified')
+      update_fields.append('is_active')
+    
+    return update_fields
 
   
-  @staticmethod
-  def extract_social_data(provider, extra_data):
-    social_data = {
-        'first_name': '',
-        'last_name': '',
-        'email': '',
-        'email_verified': False,
-        'picture': '',
-        'language': 'ja'
+  @classmethod
+  def _add_social_to_existing_user(cls, existing_user, provider, social_id, picture, email_verified):
+    user_id_field = f'{provider}_user_id'
+    update_fields = cls._check_existing_user(existing_user, provider, picture, email_verified )
+    
+    setattr(existing_user, user_id_field, social_id)
+    update_fields.append(user_id_field)
+    existing_user.save(update_fields=update_fields)
+
+    if not existing_user.is_active:
+      return existing_user, None, 'メール認証リンクを送信しました。メールを確認してください。'
+    refresh = RefreshToken.for_user(existing_user)
+    return existing_user, refresh, f'{provider.capitalize()}アカウントを追加しました'
+
+
+  @classmethod
+  def _handle_existing_social_user(cls, existing_user, email, provider, picture, email_verified ):
+    update_fields = cls._check_existing_user(existing_user, provider, picture, email_verified )
+
+    if existing_user.email != email:
+      existing_user.email = email
+      update_fields.append('email')
+    if update_fields:
+      existing_user.save(update_fields=update_fields)
+    
+    if not existing_user.is_active:
+      return existing_user, None, 'メール認証リンクを送信しました。メールを確認してください。'
+    refresh = RefreshToken.for_user(existing_user)
+    return existing_user, refresh, f'{provider.capitalize()}アカウントでログインしました'
+  
+
+  @classmethod
+  def _handle_signup_social(cls, user_type, provider, social_user_data):
+    user_id_field = f'{provider}_user_id'
+    user_data = {
+      'email': social_user_data['email'],
+      'user_type': user_type,
+      'auth_provider': provider,
+      'is_active': social_user_data['email_verified'],
+      'is_email_verified': social_user_data['email_verified'],
+      'first_name': social_user_data.get('first_name', ''),
+      'last_name': social_user_data.get('last_name', ''),
+      'profile_image_url': social_user_data.get('picture', ''),
+      user_id_field: social_user_data['id']
     }
     
-    if provider == 'google':
-        social_data['first_name'] = extra_data.get('given_name', '')
-        social_data['last_name'] = extra_data.get('family_name', '')
-        social_data['email'] = extra_data.get('email', '')
-        social_data['email_verified'] = extra_data.get('email_verified', False)
-        social_data['picture'] = extra_data.get('picture', '')
-        locale = extra_data.get('locale', 'ja')
-        social_data['language'] = locale[:2] if locale else 'ja'
-        
-    elif provider == 'apple':
-        # Appleは初回のみ名前を提供
-        name = extra_data.get('name', {})
-        if isinstance(name, dict):
-            social_data['first_name'] = name.get('firstName', '')
-            social_data['last_name'] = name.get('lastName', '')
-        
-        social_data['email'] = extra_data.get('email', '')
-        
-        # email_verifiedは文字列 'true'/'false' の場合もあるので変換
-        email_verified = extra_data.get('email_verified', False)
-        if isinstance(email_verified, str):
-            social_data['email_verified'] = email_verified.lower() == 'true'
-        else:
-            social_data['email_verified'] = bool(email_verified)
-        
-        social_data['picture'] = ''
-        social_data['language'] = 'ja'
-        
-    elif provider == 'facebook':
-        social_data['first_name'] = extra_data.get('first_name', '')
-        social_data['last_name'] = extra_data.get('last_name', '')
-        social_data['email'] = extra_data.get('email', '')
-        social_data['email_verified'] = True  # Facebookは常に確認済みメールのみ提供
-        
-        picture_data = extra_data.get('picture', {})
-        if isinstance(picture_data, dict):
-            data = picture_data.get('data', {})
-            social_data['picture'] = data.get('url', '')
-        
-        locale = extra_data.get('locale', 'ja_JP')
-        social_data['language'] = locale[:2] if locale else 'ja'
-    
-    return social_data
-    
-  @staticmethod
-  def _activate_staff_user_with_social(invitation, provider, uid, social_data, form_data):
-    if not hasattr(invitation, 'user') or not invitation.user:
-      raise ValidationError("招待にユーザー情報が含まれていません")
-    
-    user = invitation.user
-    if user.is_active:
-      raise ValidationError("このユーザーは既に登録済みです")
-    
-    user_id_field = f'{provider}_user_id'
-    user.email = social_data['email']
+    user = User.objects.create(**user_data)
+    refresh = RefreshToken.for_user(user)
 
-    setattr(user, user_id_field, uid)
-    user.auth_provider = provider
+    if user_type == 'CUSTOMER':
+      progress = CustomerRegistrationProgress.objects.get(user=user)  # 1クエリ
+      user._cached_customer_progress = progress
     
+    if user.is_active == False:
+      return user, None, 'メール認証リンクを送信しました。メールを確認してください。'
+    refresh = RefreshToken.for_user(user)
+    return user, refresh, f'{provider.capitalize()}でアカウントを作成しました'
+
+
+  @classmethod
+  def _handle_activate_social(cls, session_token, provider, data):
+
+    invitation = RegistrationUtilsService.get_invitation_from_session(session_token)
+    user_id_field = f'{provider}_user_id'
+
+    user = invitation.user
+    setattr(user, user_id_field, data['id'])
     user.is_active = True
     user.is_email_verified = True
+    user.auth_provider = provider
     user.user_type = 'STAFF'
-    user.language = form_data['language'] or invitation.language
-    user.phone_number = form_data['phone_number']
-
-    if not user.first_name:
-      user.first_name = social_data['first_name']
-    if not user.last_name:
-      user.last_name = social_data['last_name']
-
-    if social_data['picture']:
-      user.profile_image_url = social_data['picture']
-    
+    user.profile_image_url = data['picture']
     user.save()
 
-    profile_data = {}
-    for field in ['address', 'suburb', 'state', 'post_code']:
-      if field in form_data:
-        profile_data[field] = form_data[field]
-    
-    ProfileService.get_or_create_staff_profile(user, **profile_data)
-    
-    return user, True, f'{provider.capitalize()}でアカウントをアクティベートしました'
-  
-  @staticmethod
-  def _create_new_user_with_social( validated_user_type, provider, uid, social_data, invitation):
-    
-    user_id_field = f'{provider}_user_id'
-    # ユーザー作成用のデータを準備
-    user_data = {
-      'email': social_data['email'],
-      'user_type': validated_user_type,
-      'auth_provider': provider,
-      'is_active': True,
-      'is_email_verified': True,
-      'first_name': social_data['first_name'] or '',
-      'last_name': social_data['last_name'] or '',
-      'profile_image_url': social_data['picture'] or '',
-      user_id_field: uid
-    }
-    # ユーザーを作成
-    user = User.objects.create(**user_data)
-    
-    user.save()
-    
-    return user, True, f'{provider.capitalize()}でアカウントを作成しました'
-  
-  
-  @staticmethod
-  def prepare_user_data_from_form(form):
+    return RegistrationUtilsService.complete_activation(user, invitation, session_token)
 
-    result = {
-      'phone_number': None,
-      'language': None,
-      'profile_data': {}
+  @classmethod
+  def _get_google_user_data(cls, access_token):
+    try:
+      response = requests.get(
+        'https://www.googleapis.com/oauth2/v2/userinfo',
+        headers={"Authorization": f"Bearer {access_token}"}
+      )
+      response.raise_for_status()
+    except requests.exceptions.HTTPError:
+        raise ValidationError("Googleトークンが無効です。再ログインしてください。")
+    
+    data = response.json()
+
+    if not data.get('id') or not data.get('email'):
+      raise ValidationError("Googleからメールアドレスを取得できませんでした。")
+    
+    return {
+      'id': data['id'],
+      'email': data['email'],
+      'first_name': data.get('given_name', ''),
+      'last_name': data.get('family_name', ''),
+      'picture': data.get('picture', ''),
+      'email_verified': data.get('verified_email', False)
     }
-    
-    if not form or not hasattr(form, 'cleaned_data'):
-      return result
-    
-    cleaned_data = form.cleaned_data
-    
-    result['language'] = cleaned_data.get('language') or None
-    result['phone_number'] = cleaned_data.get('phone_number') or None
-    
-    for field in ['address', 'suburb', 'state', 'post_code']:
-      if field in cleaned_data:
-        value = cleaned_data[field]
-        if value:
-          result['profile_data'][field] = value
   
-    return result
+  @classmethod
+  def _get_facebook_user_data(cls, access_token):
+    try:
+      response = requests.get(
+        'https://graph.facebook.com/me',
+        params={ 
+          'fields': 'id,email,first_name,last_name,name,picture,email_verified', 
+          'access_token': access_token
+					}
+      )
+      response.raise_for_status()
+    except requests.exceptions.HTTPError:
+        raise ValidationError("Facebookトークンが無効です。再ログインしてください。")
     
+    data = response.json()
+
+    if not data.get('id') or not data.get('email'):
+      raise ValidationError("facebookからメールアドレスを取得できませんでした。")
     
+    return {
+      'id': data['id'],
+      'email': data['email'],
+      'first_name': data.get('first_name', ''),
+      'last_name': data.get('last_name', ''),
+      'picture': data.get('picture', {}).get('data', {}).get('url', ''),
+      'email_verified' : data.get('email_verified', False)
+    }
+  
+  @classmethod
+  def _get_line_user_data(cls, access_token, id_token):
+    if not access_token:
+      raise ValidationError("アクセストークンが必要です")
+    if not id_token:
+      raise ValidationError("IDトークンが必要です")
+    
+    try:
+      response = requests.get(
+          'https://api.line.me/v2/profile',
+          headers={'Authorization': f'Bearer {access_token}'}
+      )
+      response.raise_for_status()
+      profile_data = response.json()
+      
+      payload = jwt.decode(id_token, options={"verify_signature": False})
+        
+    except requests.exceptions.HTTPError:
+      raise ValidationError("LINEトークンが無効です。再ログインしてください。")
+    except (jwt.exceptions.DecodeError, jwt.exceptions.InvalidTokenError, Exception) as e:
+      raise ValidationError("LINEトークンが無効です。再ログインしてください。")
+    
+    if not payload.get("sub") and not profile_data.get("userId"):
+      raise ValidationError("LINEからユーザー情報を取得できませんでした。")
+    
+    if not payload.get("email"):
+      raise ValidationError("LINEからメールアドレスを取得できませんでした。")
+    
+    return {
+      "id": payload.get("sub") or profile_data.get("userId"),
+      "name": profile_data.get("displayName"),
+      "email": payload["email"],
+      "picture": profile_data.get("pictureUrl"),
+      "email_verified": True
+    }

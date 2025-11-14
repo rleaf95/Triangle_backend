@@ -2,104 +2,104 @@
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from django.db import transaction
-from core.models import User, StaffInvitation, TenantMembership
+from django.db import transaction, IntegrityError
+from core.models import User, StaffInvitation, CustomerRegistrationProgress
 from core.services.profile_service import ProfileService
 from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.db.models import Q
+from .registration_utils_service import RegistrationUtilsService
 
 class UserRegistrationService:
   
   @classmethod
   @transaction.atomic
-  def register_user(cls, session_token, user_type, data, profile_data):
+  def register_user(cls, session_token, user_type, data):
 
     if session_token and user_type == 'STAFF':
-      return cls._handle_activate( session_token, data, profile_data )
-    elif user_type == 'CUSTOMER' or user_type == 'OWNER':
-      return  cls._handle_signup( user_type, data, profile_data )
+      return cls._handle_activate( session_token, data )
+    elif not session_token and user_type == 'CUSTOMER' or user_type == 'OWNER':
+      return  cls._handle_signup( user_type, data )
     else :
       raise ValidationError("許可されていない登録です")
       
   
   @classmethod
-  @transaction.atomic
-  def _handle_signup(cls, user_type, data, profile_data):
+  def _handle_signup(cls, user_type, data):
+
+    email = data.get('email')
+    existing_user = User.objects.find_by_email(email)
+
+    if existing_user:
+      if existing_user.has_usable_password():
+        raise ValidationError('すでに登録済みのアドレスです。ログインしてください。')
+      return cls._handle_link_social_account(existing_user, data)
 
     user = User.objects.create_user(
-      email=data['email'],
-      password=data['password'],
+      email=data.get('email'),
+      password=data.get('password'),
       user_type=user_type,
-      country=data['country', ''],
-      timezone=data['country', ''],
+      country=data.get('country', ''),
+      timezone=data.get('timezone', ''),
+      language=data.get('language',''),
       auth_provider='email',
-      first_name=data['first_name', ''],
-      last_name=data['last_name',''],
-      phone_number=data['phone_number',''],
+      first_name=data.get('first_name', ''),
+      last_name=data.get('last_name',''),
+      phone_number=data.get('phone_number',''),
       is_email_verified = False,
-      picture = data['picture','']
+      profile_image = data.get('picture',''),
+      is_active = False
     )
-    
-    user.save()
-    if profile_data:
-      cls.handle_profile_creation(user, profile_data)
+
+    if user_type == 'CUSTOMER':
+      progress = CustomerRegistrationProgress.objects.get(user=user)
+      user._cached_customer_progress = progress
+
     if user_type == 'OWNER':
       cls.create_user_relationships(user)  
     
     return user, None, 'メール認証リンクを送信しました。メールを確認してください。'
   
+  @classmethod
+  def _handle_link_social_account(cls, existing_user, data):
+    
+    password = data.get('password')
+    if not password:
+      raise ValidationError('パスワードを設定してください。')
+    
+    existing_user.set_password(password)
+    existing_user.auth_provider = 'email'
+    update_fields = ['password', 'auth_provider']
+    
+    existing_user.save(update_fields=update_fields)
+
+    return ( existing_user, None, 'メール認証リンクを送信しました。メールを確認後、パスワードでもログインできます。')
+    
   
   @classmethod
-  def _handle_activate(cls, session_token, data, profile_data):
-    cache_key = f'invitation_session:{session_token}'
-    session_data = cache.get(cache_key)
+  def _handle_activate(cls, session_token, data):
+    required_fields = ['password', 'email']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+      raise ValidationError(f"必須フィールドが不足しています: {', '.join(missing_fields)}")
 
-    if not session_data:
-      raise ValidationError("セッションが無効または期限切れです。もう一度招待リンクからアクセスしてください。")
-    
-    invitation_id = session_data.get('invitation_id')
-    invitation_token = session_data.get('invitation_token')
-    session_email = session_data.get('email')
+    invitation = RegistrationUtilsService.get_invitation_from_session(session_token)
 
-    try:
-      invitation = (StaffInvitation.objects
-        .with_related_info
-        .valid
-        .by_token(invitation_token)
-        .by_email.valid(session_email)
-        .by_id(invitation_id))
-    except StaffInvitation.DoesNotExist:
-      cache.delete(cache_key)
-      raise ValidationError('招待が見つかりません')
     
     user = invitation.user
-
+    password = data['password']
+    user.set_password(password)
     user.is_active = True
     user.is_email_verified = True
     user.auth_provider = 'email'
-    user.password=data['password']
-    user.language = data['language']
-    user.user_type = 'STAFF'
-    user.first_name = data['first_name']
-    user.last_name = data['last_name']
-    user.phone_number = data['phone_number', '']
-    user.profile_image_url = data['picture', '']
-    user.save()
+    user.profile_image = data.get('picture', '')
 
-    cache.delete(cache_key)
-    refresh = RefreshToken.for_user(user)
-    cls.handle_profile_creation(user, profile_data)
-    cls.process_invitation(invitation, user)
-    
-    return user, refresh, 'USERをアクティベートしました'
-  
-  def validate_invitation(invitation_token):
-    try:
-      invitation = StaffInvitation.objects.valid().by_token(invitation_token).get()
-      return invitation
-    except StaffInvitation.DoesNotExist:
-        raise ValidationError('無効または期限切れの招待リンクです')
+    user.save(update_fields=[
+      'password', 'is_active', 'is_email_verified', 'auth_provider', 'profile_image'
+    ])
+
+    return RegistrationUtilsService.complete_activation(user, invitation, session_token)
+
   
 
   @classmethod
@@ -107,24 +107,24 @@ class UserRegistrationService:
     """プロファイル作成・更新の共通処理"""
     if profile_data:
       if user.user_type == 'STAFF':
-        ProfileService.get_or_create_staff_profile(user, **profile_data)
+        ProfileService.get_or_create_staff_profile(user, profile_data)
       else:
         pass
     
 
   
   @classmethod
-  def create_user_relationships(cls, user, invitation):
+  def create_user_relationships(cls, user):
     """
     ユーザーと会社・テナントの関連を作成（オーナー用）
     """
     if user.user_type == 'OWNER':
-      cls._create_owner_relationships(user, invitation)
+      cls._create_owner_relationships(user)
     else:
       pass
   
   @classmethod
-  def _create_owner_relationships(cls, user, invitation):
+  def _create_owner_relationships(cls, user):
     """
     オーナーの関連を作成
     
@@ -139,8 +139,8 @@ class UserRegistrationService:
     # TODO: 必要に応じて実装
     pass
   
-  @staticmethod
-  def process_invitation(invitation, user):
+  @classmethod
+  def process_invitation(cls, invitation, user):
     """招待を処理（使用済みにする）"""
     if invitation:
       invitation.is_used = True
