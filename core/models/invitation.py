@@ -44,6 +44,10 @@ class StaffInvitationQuerySet(models.QuerySet):
     """使用済みの招待"""
     return self.filter(is_used=True)
   
+  def unused(self):
+    """未使用の招待"""
+    return self.filter(is_used=False)
+  
   def expired(self):
     """期限切れの招待"""
     return self.filter(expires_at__lte=timezone.now())

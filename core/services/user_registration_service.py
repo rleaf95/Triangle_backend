@@ -85,7 +85,6 @@ class UserRegistrationService:
 
     invitation = RegistrationUtilsService.get_invitation_from_session(session_token)
 
-    
     user = invitation.user
     password = data['password']
     user.set_password(password)

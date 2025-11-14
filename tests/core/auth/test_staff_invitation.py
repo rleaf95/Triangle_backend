@@ -109,13 +109,11 @@ class TestStaffInvitationValidation:
   def test_3_2_1_valid_invitation_token(self):
     """3.2.1: 有効な招待トークン検証"""
     invitation = StaffInvitationFactory()
-    
     validated = RegistrationUtilsService.validate_invitation(invitation.token)
     
     assert validated.id == invitation.id
     assert validated.email == invitation.email
     
-    # Redisにセッション保存（実際のサービスで実装）
     cache_key = f'invitation_session:test_session_token'
     cache.set(cache_key, {
       'invitation_id': str(invitation.id),

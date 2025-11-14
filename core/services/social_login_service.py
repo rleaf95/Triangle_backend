@@ -82,6 +82,7 @@ class SocialLoginService:
   
   @classmethod
   def _add_social_to_existing_user(cls, existing_user, provider, social_id, picture, email_verified):
+    
     user_id_field = f'{provider}_user_id'
     update_fields = cls._check_existing_user(existing_user, provider, picture, email_verified )
     

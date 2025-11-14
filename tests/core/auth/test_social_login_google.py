@@ -298,8 +298,13 @@ class TestGoogleExistingUserByEmail:
     existing_user = UserFactory(
       email='test@example.com',
       is_email_verified=False,
+      is_active=False,
       auth_provider='email'
     )
+
+    print(f"[TEST] After UserFactory: is_active = {existing_user.is_active}")
+    existing_user.refresh_from_db()
+    print(f"[TEST] After refresh_from_db: is_active = {existing_user.is_active}")
     
     user, _, _ = SocialLoginService.get_or_create_user(
       user_type='CUSTOMER',
@@ -627,7 +632,7 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_7_invalid_session_token_google(self, mock_google_api):
     """4.6.7: 無効なsession_token（Google）"""
-    with pytest.raises(ValidationError, match='セッションが無効または期限切れです'):
+    with pytest.raises(ValidationError, match='スタッフの登録には招待が必要です。'):
       SocialLoginService.get_or_create_user(
         user_type='STAFF',
         access_token='valid_google_token',

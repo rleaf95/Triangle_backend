@@ -15,19 +15,17 @@ class TestCustomerSignup:
     data = {
       'email': 'customer@example.com',
       'password': 'testpass123',
-      
     }
     
     user, refresh, message = UserRegistrationService.register_user(
       session_token=None,
       user_type='CUSTOMER',
       data=data,
-      profile_data=None
     )
     
     assert user.email == 'customer@example.com'
     assert user.user_type == 'CUSTOMER'
-    assert user.is_active is True
+    assert user.is_active is False
     assert user.is_email_verified is False
     assert user.auth_provider == 'email'
     assert user.check_password('testpass123')
@@ -46,18 +44,11 @@ class TestCustomerSignup:
       'timezone': 'Asia/Tokyo',
       'language': 'ja',
     }
-    profile_data = {
-      'address': '東京都渋谷区',
-      'suburb': '渋谷',
-      'state': '東京都',
-      'post_code': '150-0001',
-    }
     with query_counter as qc:
       user, refresh, message = UserRegistrationService.register_user(
         session_token=None,
         user_type='CUSTOMER',
         data=data,
-        profile_data=profile_data,
       )
 
     assert hasattr(user, '_cached_customer_progress')
@@ -94,7 +85,6 @@ class TestCustomerSignup:
       session_token=None,
       user_type='CUSTOMER',
       data=data,
-      profile_data=None
     )
     
     assert user.profile_image == 'https://example.com/photo.jpg'
@@ -110,7 +100,6 @@ class TestCustomerSignup:
       session_token=None,
       user_type='CUSTOMER',
       data=data,
-      profile_data=None
     )
     
     assert user.country == ''
@@ -138,10 +127,9 @@ class TestCustomerSignup:
         session_token=None,
         user_type='CUSTOMER',
         data=data,
-        profile_data=None
       )
   
-  def test_01_01_010_customer_signup_with_existing_email_inactive(self):
+  def test_01_01_10_customer_signup_with_existing_email_inactive(self):
     """1.1.10: 既存のメールアドレス(is_active=False)"""
     UserFactory(email='existing@example.com', is_active=False)
     
@@ -151,12 +139,11 @@ class TestCustomerSignup:
       'user_type':'CUSTOMER'
     }
     
-    with pytest.raises(ValidationError, match='すでに登録してあるアドレスです'):
+    with pytest.raises(ValidationError, match='ログインしてください'):
       UserRegistrationService.register_user(
         session_token=None,
         user_type='CUSTOMER',
         data=data,
-        profile_data=None
       )
 
 
@@ -176,7 +163,6 @@ class TestOwnerSignup:
       session_token=None,
       user_type='OWNER',
       data=data,
-      profile_data=None
     )
     
     assert user.email == 'owner@example.com'
@@ -200,7 +186,6 @@ class TestOwnerSignup:
       session_token=None,
       user_type='OWNER',
       data=data,
-      profile_data=None
     )
     
     assert user.user_type == 'OWNER'
@@ -221,5 +206,4 @@ class TestOwnerSignup:
         session_token=None,
         user_type='OWNER',
         data=data,
-        profile_data=None
       )

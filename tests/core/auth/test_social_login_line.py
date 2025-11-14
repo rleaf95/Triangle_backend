@@ -243,7 +243,17 @@ class TestLineStaffWithInvitation:
   
   def test_5_4_1_line_invitation_activation(self, mock_line_api):
     """5.4.1: LINE招待アクティベート"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -268,7 +278,17 @@ class TestLineStaffWithInvitation:
   
   def test_5_4_3_activation_invitation_and_progress(self, mock_line_api):
     """5.4.3: アクティベート後の招待・プログレス"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
