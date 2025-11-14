@@ -7,4 +7,16 @@ faker==20.1.0
 freezegun==1.4.0
 Django==5.0
 django-allauth==0.57.0
-python-decouple
+Django==5.0
+django-allauth==0.57.0
+django-cors-headers==4.3.1
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+pycparser==2.23
+PyJWT==2.10.1
+pyparsing==3.2.5
+python-decouple==3.8
+python-dotenv==1.2.1
+python3-openid==3.2.0
+pytz==2025.2
+requests==2.32.5
