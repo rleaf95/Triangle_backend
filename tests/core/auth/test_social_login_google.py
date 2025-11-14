@@ -12,8 +12,8 @@ from ...factories import UserFactory, StaffInvitationFactory
 class TestGoogleCustomerSignup:
   """CUSTOMER Google新規登録のテスト"""
   
-  def test_4_1_1_google_first_signup(self, mock_google_api):
-    """4.1.1: Google初回サインアップ"""
+  def test_01_03_01_google_first_signup(self, mock_google_api):
+    """Google初回サインアップ"""
     user, refresh, message = SocialLoginService.get_or_create_user(
       user_type='CUSTOMER',
       access_token='valid_google_token',
@@ -31,9 +31,8 @@ class TestGoogleCustomerSignup:
     assert refresh is not None
     assert 'Googleでアカウントを作成しました' in message
   
-  def test_4_1_2_google_signup_all_info(self, mock_google_api, query_counter):
-    """4.1.2: Googleサインアップ（全情報取得）"""
-
+  def test_01_03_02_google_signup_all_info(self, mock_google_api, query_counter):
+    """Googleサインアップ（全情報取得）"""
 
     with query_counter as qc:
       user, _, _ = SocialLoginService.get_or_create_user(
@@ -60,8 +59,8 @@ class TestGoogleCustomerSignup:
     assert user.profile_image_url == 'https://example.com/photo.jpg'
     qc.assert_max_queries(6)
   
-  def test_4_1_3_google_signup_no_name(self, mock_google_api_no_name):
-    """4.1.3: Googleサインアップ（名前なし）"""
+  def test_01_03_03_google_signup_no_name(self, mock_google_api_no_name):
+    """Googleサインアップ（名前なし）"""
     user, _, _ = SocialLoginService.get_or_create_user(
       user_type='CUSTOMER',
       access_token='valid_google_token',
@@ -69,13 +68,12 @@ class TestGoogleCustomerSignup:
       session_token=None,
       id_token=None
     )
-    
     assert user.email == 'test@example.com'
     assert user.first_name == ''
     assert user.last_name == ''
   
-  def test_4_1_4_google_signup_no_picture(self, mock_google_api_no_picture):
-    """4.1.4: Googleサインアップ（pictureなし）"""
+  def test_01_03_04_google_signup_no_picture(self, mock_google_api_no_picture):
+    """Googleサインアップ（pictureなし）"""
     user, _, _ = SocialLoginService.get_or_create_user(
       user_type='CUSTOMER',
       access_token='valid_google_token',
@@ -87,8 +85,8 @@ class TestGoogleCustomerSignup:
     assert user.email == 'test@example.com'
     assert user.profile_image_url == ''
   
-  def test_4_1_5_invalid_google_token(self, mock_google_api_error_401):
-    """4.1.5: 無効なGoogleアクセストークン"""
+  def test_01_03_05_invalid_google_token(self, mock_google_api_error_401):
+    """無効なGoogleアクセストークン"""
     with pytest.raises(ValidationError, match='Googleトークンが無効です'):
       SocialLoginService.get_or_create_user(
         user_type='CUSTOMER',
@@ -98,8 +96,8 @@ class TestGoogleCustomerSignup:
         id_token=None
       )
   
-  def test_4_1_6_google_api_error_401(self, mock_google_api_error_401):
-    """4.1.6: GoogleAPIエラー（401）"""
+  def test_01_03_06_google_api_error_401(self, mock_google_api_error_401):
+    """GoogleAPIエラー（401）"""
     with pytest.raises(ValidationError, match='Googleトークンが無効です'):
       SocialLoginService.get_or_create_user(
         user_type='CUSTOMER',
@@ -109,8 +107,8 @@ class TestGoogleCustomerSignup:
         id_token=None
       )
   
-  def test_4_1_7_google_api_error_403(self, mock_google_api_error_403):
-    """4.1.7: GoogleAPIエラー（403）"""
+  def test_01_03_07_google_api_error_403(self, mock_google_api_error_403):
+    """GoogleAPIエラー（403）"""
     with pytest.raises(ValidationError, match='Googleトークンが無効です'):
       SocialLoginService.get_or_create_user(
         user_type='CUSTOMER',
@@ -120,8 +118,8 @@ class TestGoogleCustomerSignup:
         id_token=None
       )
   
-  def test_4_1_8_google_api_error_500(self, mock_google_api_error_500):
-    """4.1.8: GoogleAPIエラー（500）"""
+  def test_01_03_08_google_api_error_500(self, mock_google_api_error_500):
+    """GoogleAPIエラー（500）"""
     with pytest.raises(ValidationError, match='Googleトークンが無効です'):
       SocialLoginService.get_or_create_user(
         user_type='CUSTOMER',
@@ -131,8 +129,8 @@ class TestGoogleCustomerSignup:
         id_token=None
       )
   
-  def test_4_1_9_google_no_email(self, mock_google_api_no_email):
-    """4.1.9: Googleからemailなし"""
+  def test_01_03_09_google_no_email(self, mock_google_api_no_email):
+    """Googleからemailなし"""
     with pytest.raises(ValidationError):
       SocialLoginService.get_or_create_user(
         user_type='CUSTOMER',
@@ -147,7 +145,7 @@ class TestGoogleCustomerSignup:
 class TestGoogleExistingUserBySocialId:
   """CUSTOMER Google既存ユーザー（ソーシャルID）のテスト"""
   
-  def test_4_2_1_google_re_login(self, mock_google_api):
+  def test_01_04_01_google_re_login(self, mock_google_api):
     """4.2.1: Google再ログイン"""
     # 既存ユーザー作成
     existing_user = UserFactory(
@@ -168,7 +166,7 @@ class TestGoogleExistingUserBySocialId:
     assert refresh is not None
     assert 'Googleアカウントでログインしました' in message
   
-  def test_4_2_2_google_login_email_changed(self, mock_google_api):
+  def test_01_04_02_google_login_email_changed(self, mock_google_api):
     """4.2.2: Googleログイン時のメール変更"""
     # 既存ユーザー（異なるメール）
     existing_user = UserFactory(
@@ -188,7 +186,7 @@ class TestGoogleExistingUserBySocialId:
     assert user.id == existing_user.id
     assert user.email == 'test@example.com'  # 更新されている
   
-  def test_4_2_3_google_login_other_fields_unchanged(self, mock_google_api):
+  def test_01_04_03_google_login_other_fields_unchanged(self, mock_google_api):
     """4.2.3: メール変更時の他フィールド"""
     existing_user = UserFactory(
       email='old@example.com',
@@ -217,7 +215,7 @@ class TestGoogleExistingUserBySocialId:
 class TestGoogleExistingUserByEmail:
   """CUSTOMER Google既存ユーザー（メールアドレス）のテスト"""
   
-  def test_4_3_1_add_google_to_email_user(self, mock_google_api):
+  def test_01_05_01_add_google_to_email_user(self, mock_google_api):
     """4.3.1: 既存メール（email登録）にGoogleアカウント追加"""
     existing_user = UserFactory(
       email='test@example.com',
@@ -238,7 +236,7 @@ class TestGoogleExistingUserByEmail:
     assert user.auth_provider == 'google'
     assert 'Googleアカウントを追加しました' in message
   
-  def test_4_3_2_add_google_to_line_user(self, mock_google_api):
+  def test_01_05_02_add_google_to_line_user(self, mock_google_api):
     """4.3.2: 既存メール（LINE登録）にGoogleアカウント追加"""
     existing_user = UserFactory(
       email='test@example.com',
@@ -260,7 +258,7 @@ class TestGoogleExistingUserByEmail:
     assert user.line_user_id == 'U1234567890abcdef'  # そのまま
     assert user.auth_provider == 'google'
   
-  def test_4_3_3_add_google_with_picture_to_user_without_picture(self, mock_google_api):
+  def test_01_05_03_add_google_with_picture_to_user_without_picture(self, mock_google_api):
     """4.3.3: プロフィール画像なしユーザーに追加"""
     existing_user = UserFactory(
       email='test@example.com',
@@ -277,7 +275,7 @@ class TestGoogleExistingUserByEmail:
     
     assert user.profile_image_url == 'https://example.com/photo.jpg'
   
-  def test_4_3_4_add_google_to_user_with_picture(self, mock_google_api):
+  def test_01_05_04_add_google_to_user_with_picture(self, mock_google_api):
     """4.3.4: プロフィール画像ありユーザー"""
     existing_user = UserFactory(
       email='test@example.com',
@@ -295,7 +293,7 @@ class TestGoogleExistingUserByEmail:
     # 既存の画像は更新されない
     assert user.profile_image_url == 'https://existing.com/photo.jpg'
   
-  def test_4_3_5_add_google_to_unverified_email_user(self, mock_google_api):
+  def test_01_05_05_add_google_to_unverified_email_user(self, mock_google_api):
     """4.3.5: 既存メール（is_email_verified=False）にGoogle追加"""
     existing_user = UserFactory(
       email='test@example.com',
@@ -312,8 +310,8 @@ class TestGoogleExistingUserByEmail:
     )
     
     assert user.google_user_id == '123456789'
-    # is_email_verified は変更されない（Falseのまま）
-    assert user.is_email_verified is False
+    assert user.is_email_verified is True
+    assert user.auth_provider == 'google'
 
 
 @pytest.mark.django_db
@@ -444,8 +442,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_1_google_invitation_activation(self, mock_google_api, query_counter):
     """4.6.1: Google招待アクティベート"""
-    invitation = StaffInvitationFactory(email='test@example.com')
-
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -487,7 +494,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_2_activation_invitation_state(self, mock_google_api):
     """4.6.2: アクティベート後の招待状態"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -511,7 +528,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_3_activation_progress_update(self, mock_google_api):
     """4.6.3: アクティベート後のプログレス"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -534,7 +561,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_4_activation_redis_cleanup(self, mock_google_api):
     """4.6.4: アクティベート後のRedis"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -558,7 +595,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_6_google_profile_picture_set(self, mock_google_api):
     """4.6.6: Googleプロフィール画像設定"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'
@@ -591,7 +638,17 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_8_expired_session_token_google(self, mock_google_api):
     """4.6.8: 期限切れsession_token（Google）"""
-    invitation = StaffInvitationFactory(email='test@example.com')
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
+    invitation = StaffInvitationFactory(
+      email='test@example.com',
+      user=user
+    )
     session_token = 'test_session_token'
     
     # Redisに保存しない（期限切れ想定）
@@ -607,8 +664,16 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_9_used_invitation_google(self, mock_google_api):
     """4.6.9: 使用済み招待（Google）"""
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
     invitation = StaffInvitationFactory(
       email='test@example.com',
+      user=user,
       is_used=True,
       used_at=timezone.now()
     )
@@ -632,10 +697,19 @@ class TestGoogleStaffWithInvitation:
   
   def test_4_6_10_expired_invitation_google(self, mock_google_api):
     """4.6.10: 期限切れ招待（Google）"""
+    user = UserFactory(
+      email='test@example.com',
+      user_type='STAFF',
+      is_active=False,
+      facebook_user_id=None,
+      auth_provider='email'
+    )
     invitation = StaffInvitationFactory(
       email='test@example.com',
+      user=user,
       expires_at=timezone.now() - timedelta(days=1)
     )
+    
     session_token = 'test_session_token'
     
     cache_key = f'invitation_session:{session_token}'

@@ -10,7 +10,7 @@ from ...factories import UserFactory
 class TestCustomerSignup:
   """CUSTOMERサインアップのテスト"""
   
-  def test_1_1_1_customer_signup_with_required_fields_only(self):
+  def test_01_01_01_customer_signup_with_required_fields_only(self):
     """1.1.1: 必須項目のみでサインアップ"""
     data = {
       'email': 'customer@example.com',
@@ -34,7 +34,7 @@ class TestCustomerSignup:
     assert refresh is None
     assert 'メール認証リンク' in message
 
-  def test_1_1_2_customer_signup_with_all_fields(self, query_counter):
+  def test_01_01_02_customer_signup_with_all_fields(self, query_counter):
     """1.1.2: 全項目入力でサインアップ （クエリ数検証付き）"""
     data = {
       'email': 'customer@example.com',
@@ -82,7 +82,7 @@ class TestCustomerSignup:
     assert not hasattr(user, 'staff_profile')
     qc.assert_max_queries(4)
   
-  def test_1_1_3_customer_signup_with_picture(self):
+  def test_01_01_03_customer_signup_with_picture(self):
     """1.1.3: プロフィール画像URL付きサインアップ"""
     data = {
       'email': 'customer@example.com',
@@ -99,7 +99,7 @@ class TestCustomerSignup:
     
     assert user.profile_image == 'https://example.com/photo.jpg'
   
-  def test_1_1_4_customer_signup_default_values(self):
+  def test_01_01_04_customer_signup_default_values(self):
     """1.1.4: デフォルト値の確認"""
     data = {
       'email': 'customer@example.com',
@@ -123,7 +123,7 @@ class TestCustomerSignup:
   """1.1.6: パスワードなし"""
   #-> serializer test
   
-  def test_1_1_9_customer_signup_with_existing_email_active(self):
+  def test_01_01_09_customer_signup_with_existing_email_active(self):
     """1.1.9: 既存のメールアドレス（is_active=True）"""
     UserFactory(email='existing@example.com', is_active=True)
     
@@ -141,7 +141,7 @@ class TestCustomerSignup:
         profile_data=None
       )
   
-  def test_1_1_10_customer_signup_with_existing_email_inactive(self):
+  def test_01_01_010_customer_signup_with_existing_email_inactive(self):
     """1.1.10: 既存のメールアドレス(is_active=False)"""
     UserFactory(email='existing@example.com', is_active=False)
     
@@ -165,7 +165,7 @@ class TestCustomerSignup:
 class TestOwnerSignup:
   """OWNERサインアップのテスト"""
   
-  def test_1_2_1_owner_signup_with_required_fields(self):
+  def test_01_02_01_owner_signup_with_required_fields(self):
     """1.2.1: OWNER登録（必須項目のみ）"""
     data = {
       'email': 'owner@example.com',
@@ -183,7 +183,7 @@ class TestOwnerSignup:
     assert user.user_type == 'OWNER'
     assert user.is_email_verified is False
   
-  def test_1_2_2_owner_signup_with_all_fields(self):
+  def test_01_02_02_owner_signup_with_all_fields(self):
     """1.2.2: OWNER登録（全項目）"""
     data = {
       'email': 'owner@example.com',
@@ -207,7 +207,7 @@ class TestOwnerSignup:
     assert user.first_name == '太郎'
     assert user.last_name == '山田'
   
-  def test_1_2_4_owner_signup_with_existing_email(self):
+  def test_01_02_04_owner_signup_with_existing_email(self):
     """1.2.4: 既存のメールアドレス"""
     UserFactory(email='existing@example.com', user_type='OWNER')
     

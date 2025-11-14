@@ -55,7 +55,7 @@ class RegistrationUtilsService:
   
   def validate_invitation(invitation_token):
     try:
-      invitation = StaffInvitation.objects.valid().used.by_token(invitation_token).get()
+      invitation = StaffInvitation.objects.valid().used().by_token(invitation_token).get()
       return invitation
     except StaffInvitation.DoesNotExist:
         raise ValidationError('無効または期限切れの招待リンクです')
