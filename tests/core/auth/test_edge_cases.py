@@ -5,9 +5,10 @@ from django.db import transaction, IntegrityError
 from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
-from core.models import User, StaffProfile, StaffInvitation, StaffRegistrationProgress
-from core.services.user_registration_service import UserRegistrationService
-from core.services.social_login_service import SocialLoginService
+from users.models import User, StaffProfile, StaffRegistrationProgress
+from invitation.models import StaffInvitation
+from authentication.services.user_registration_service import UserRegistrationService
+from authentication.services.social_login_service import SocialLoginService
 from ...factories import UserFactory, StaffInvitationFactory, StaffProfileFactory
 
 
@@ -404,7 +405,7 @@ class TestProviderSpecificEdgeCases:
   
   def test_8_5_1_google_verified_email_false(self):
     """8.5.1: verified_email=False"""
-    with patch('core.services.social_login_service.requests.get') as mock_get:
+    with patch('authentication.services.social_login_service.requests.get') as mock_get:
       response = MagicMock()
       response.raise_for_status = MagicMock()
       response.json.return_value = {
@@ -455,8 +456,8 @@ class TestProviderSpecificEdgeCases:
   
   def test_8_5_5_line_sub_and_user_id_mismatch(self):
     """8.5.5: id_token.subとuserIdの不一致"""
-    with patch('core.services.social_login_service.requests.get') as mock_get, \
-        patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+    with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+        patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
       
       def get_side_effect(url, *args, **kwargs):
         response = MagicMock()

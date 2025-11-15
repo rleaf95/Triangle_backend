@@ -1,5 +1,5 @@
 import pytest
-from core.serializers import SignupSerializer
+from authentication.serializers import SignupSerializer
 
 
 @pytest.mark.django_db

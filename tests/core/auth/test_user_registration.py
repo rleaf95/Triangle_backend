@@ -1,7 +1,7 @@
 import pytest
 from django.core.exceptions import ValidationError
-from core.models import User, StaffProfile, CustomerRegistrationProgress
-from core.services.user_registration_service import UserRegistrationService
+from users.models import User, StaffProfile, CustomerRegistrationProgress
+from authentication.services.user_registration_service import UserRegistrationService
 from ...factories import UserFactory
 
 
@@ -54,7 +54,7 @@ class TestCustomerSignup:
     assert hasattr(user, '_cached_customer_progress')
     assert user._cached_customer_progress.step == 'done'
     
-    from core.serializers import UserSerializer
+    from users.serializers import UserSerializer
     with query_counter as qc2:
       user_serializer = UserSerializer(user)
       serialized_data = user_serializer.data

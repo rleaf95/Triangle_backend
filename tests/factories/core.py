@@ -3,16 +3,10 @@ from factory.django import DjangoModelFactory
 from django.utils import timezone
 from datetime import timedelta
 import uuid
-from core.models import (
-  User, 
-  StaffProfile, 
-  StaffInvitation, 
-  StaffRegistrationProgress,
-  Tenant,
-  TenantMembership,
-  Company
-)
-
+from users.models import User, StaffProfile, StaffRegistrationProgress
+from invitation.models import StaffInvitation
+from organizations.models import Tenant,  Company
+from permissions.models import TenantMembership
 
 class UserFactory(DjangoModelFactory):
   class Meta:

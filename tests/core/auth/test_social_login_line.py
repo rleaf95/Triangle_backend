@@ -3,8 +3,8 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
-from core.models import User
-from core.services.social_login_service import SocialLoginService
+from users.models import User
+from authentication.services.social_login_service import SocialLoginService
 from ...factories import UserFactory, StaffInvitationFactory
 
 

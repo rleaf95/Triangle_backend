@@ -1,8 +1,8 @@
 import pytest
 from django.core.exceptions import ValidationError
-from core.models import User
-from core.services.social_login_service import SocialLoginService
-from core.services.user_registration_service import UserRegistrationService
+from users.models import User
+from authentication.services.social_login_service import SocialLoginService
+from authentication.services.user_registration_service import UserRegistrationService
 from tests.factories.core import UserFactory
 
 

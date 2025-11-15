@@ -3,8 +3,8 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
-from core.models import User
-from core.services.social_login_service import SocialLoginService
+from users.models import User
+from authentication.services.social_login_service import SocialLoginService
 from ...factories import UserFactory, StaffInvitationFactory
 
 
@@ -46,7 +46,7 @@ class TestGoogleCustomerSignup:
     assert hasattr(user, '_cached_customer_progress')
     assert user._cached_customer_progress.step == 'detail'
     
-    from core.serializers import UserSerializer
+    from users.serializers import UserSerializer
     with query_counter as qc2:
       user_serializer = UserSerializer(user)
       serialized_data = user_serializer.data
@@ -481,7 +481,7 @@ class TestGoogleStaffWithInvitation:
     assert hasattr(user, 'staff_progress')
     assert user.staff_progress.step == 'profile'
     
-    from core.serializers import UserSerializer
+    from users.serializers import UserSerializer
 
     from django.test.utils import CaptureQueriesContext
     from django.db import connection

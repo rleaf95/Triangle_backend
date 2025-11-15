@@ -63,7 +63,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 @pytest.fixture
 def mock_google_api():
   """Google API モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()
@@ -87,7 +87,7 @@ def mock_google_api():
 @pytest.fixture
 def mock_google_api_no_name():
   """Google API モック（名前なし）"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()
@@ -107,7 +107,7 @@ def mock_google_api_no_name():
 @pytest.fixture
 def mock_google_api_no_picture():
   """Google API モック（画像なし）"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()
@@ -129,7 +129,7 @@ def mock_google_api_no_picture():
 @pytest.fixture
 def mock_google_api_no_email():
   """Google API モック（メールなし）"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()
@@ -148,7 +148,7 @@ def mock_google_api_no_email():
 @pytest.fixture
 def mock_google_api_error_401():
   """Google APIエラー 401 モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     response = MagicMock()
     response.status_code = 401
     response.reason = 'Unauthorized'
@@ -163,7 +163,7 @@ def mock_google_api_error_401():
 @pytest.fixture
 def mock_google_api_error_403():
   """Google APIエラー 403 モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     response = MagicMock()
     response.status_code = 403
     response.reason = 'Forbidden'
@@ -179,7 +179,7 @@ def mock_google_api_error_403():
 @pytest.fixture
 def mock_google_api_error_500():
   """Google APIエラー 500 モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     response = MagicMock()
     response.status_code = 500
     response.reason = 'Internal Server Error'
@@ -196,8 +196,8 @@ def mock_google_api_error_500():
 @pytest.fixture
 def mock_line_api():
   """LINE API モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get, \
-      patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+      patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
     
     def get_side_effect(url, *args, **kwargs):
       response = MagicMock()
@@ -223,8 +223,8 @@ def mock_line_api():
 @pytest.fixture
 def mock_line_api_no_picture():
   """LINE API モック（画像なし）"""
-  with patch('core.services.social_login_service.requests.get') as mock_get, \
-      patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+      patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
     
     def get_side_effect(url, *args, **kwargs):
       response = MagicMock()
@@ -249,8 +249,8 @@ def mock_line_api_no_picture():
 @pytest.fixture
 def mock_line_api_no_email():
   """LINE API モック（メールなし）"""
-  with patch('core.services.social_login_service.requests.get') as mock_get, \
-      patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+      patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
     
     def get_side_effect(url, *args, **kwargs):
       response = MagicMock()
@@ -275,7 +275,7 @@ def mock_line_api_no_email():
 @pytest.fixture
 def mock_line_api_error_401():
   """LINE APIエラー 401 モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     response = MagicMock()
     response.status_code = 401
     response.reason = 'Unauthorized'
@@ -290,8 +290,8 @@ def mock_line_api_error_401():
 @pytest.fixture
 def mock_line_api_invalid_id_token():
   """LINE 無効なIDトークン モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get, \
-      patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+      patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
     
     def get_side_effect(url, *args, **kwargs):
       response = MagicMock()
@@ -312,8 +312,8 @@ def mock_line_api_invalid_id_token():
 @pytest.fixture
 def mock_social_apis():
   """LINE & Google API モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get, \
-    patch('core.services.social_login_service.jwt.decode') as mock_jwt:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get, \
+    patch('authentication.services.social_login_service.jwt.decode') as mock_jwt:
     
     def get_side_effect(url, *args, **kwargs):
       response = MagicMock()
@@ -348,7 +348,7 @@ def mock_social_apis():
 @pytest.fixture
 def mock_facebook_api():
   """Facebook API モック"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()
@@ -375,7 +375,7 @@ def mock_facebook_api():
 @pytest.fixture
 def mock_facebook_api_no_email():
   """Facebook API モック NO EMAIL"""
-  with patch('core.services.social_login_service.requests.get') as mock_get:
+  with patch('authentication.services.social_login_service.requests.get') as mock_get:
     def side_effect(url, *args, **kwargs):
       response = MagicMock()
       response.raise_for_status = MagicMock()

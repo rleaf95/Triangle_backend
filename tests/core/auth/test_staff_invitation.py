@@ -3,9 +3,10 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
-from core.models import StaffInvitation, StaffRegistrationProgress, StaffProfile
-from core.services.user_registration_service import UserRegistrationService
-from core.services.registration_utils_service import RegistrationUtilsService
+from users.models import StaffRegistrationProgress
+from invitation.models import StaffInvitation
+from authentication.services.user_registration_service import UserRegistrationService
+from authentication.services.registration_utils_service import RegistrationUtilsService
 from ...factories import (
   UserFactory, 
   StaffInvitationFactory, 
@@ -222,7 +223,7 @@ class TestStaffActivation:
     assert hasattr(user, 'staff_progress')
     assert user.staff_progress.step == 'profile'
 
-    from core.serializers import UserSerializer
+    from users.serializers import UserSerializer
     user_serializer = UserSerializer(user)
     serialized_data = user_serializer.data
 

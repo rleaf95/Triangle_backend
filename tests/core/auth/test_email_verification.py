@@ -4,7 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 from allauth.account.models import EmailAddress, EmailConfirmation
 from allauth.account.utils import send_email_confirmation
-from core.models import User
+from users.models import User
 from ...factories import UserFactory
 
 

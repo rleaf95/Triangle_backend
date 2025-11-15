@@ -25,7 +25,11 @@ INSTALLED_APPS = [
   'django.contrib.sites',  # django-allauthに必要
 
   # 自作アプリ
-  'core',
+  'authentication',
+  'organizations',
+  'users',
+  'invitation',
+  'permissions',
   
   # サードパーティアプリ
   'rest_framework',
@@ -129,12 +133,10 @@ LANGUAGES = [
   ('ja', '日本語'),
   ('en', 'English'),
 ]
-
 # 翻訳ファイルの場所
 LOCALE_PATHS = [
   BASE_DIR / 'locale',
 ]
-
 USE_I18N = True
 USE_L10N = True
 
@@ -148,7 +150,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+  BASE_DIR / 'static',
 ]
 
 MEDIA_URL = '/media/'
@@ -158,7 +160,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ===== カスタムユーザーモデル =====
 
-AUTH_USER_MODEL = 'core.User'
+AUTH_USER_MODEL = 'users.User'
 
 # ===== サイトID（django-allauth用） =====
 
@@ -240,8 +242,6 @@ GOOGLE_ANDROID_CLIENT_ID = os.environ.get('GOOGLE_ANDROID_CLIENT_ID', '')
 SOCIALACCOUNT_FORMS = {
   'signup': 'your_app.forms.CustomSocialSignupForm',
 }
-SOCIALACCOUNT_ADAPTER = 'core.adapters.allauth_adapters.CustomSocialAccountAdapter'
-ACCOUNT_ADAPTER = 'core.adapters.allauth_adapters.CustomAccountAdapter'
 
 # ===== REST Framework設定 =====
 
