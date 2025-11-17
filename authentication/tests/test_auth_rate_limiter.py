@@ -24,7 +24,6 @@ class RateLimiterTestCase(TestCase):
     """制限内のリクエストは許可される"""
     key = 'test:user2'
     
-    # 5回まで許可される
     for i in range(5):
       result = self.rate_limiter.check_rate_limit(key, 5, 3600)
       self.assertTrue(result, f"{i+1}回目のリクエストが拒否されました")
@@ -113,7 +112,6 @@ class AuthRateLimiterTestCase(TestCase):
     """ログインのレート制限"""
     ip = '192.168.1.2'
     
-    # 10回は成功
     for i in range(5):
       result = self.auth_rate_limiter.check_login_limit(ip)
       self.assertTrue(result)
@@ -126,10 +124,8 @@ class AuthRateLimiterTestCase(TestCase):
     """登録とログインの制限は独立している"""
     ip = '192.168.1.3'
     
-    # 登録を5回（上限）
     for i in range(5):
       self.auth_rate_limiter.check_register_limit(ip)
     
-    # ログインは別カウントなので成功
     result = self.auth_rate_limiter.check_login_limit(ip)
     self.assertTrue(result)

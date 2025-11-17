@@ -1,5 +1,6 @@
-from email_service import EmailService
+from .email_service import EmailService, EmailSendException
 
 __all__ = [
-  'EmailService'
+  'EmailService',
+  'EmailSendException',
 ]

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from ..utils import DisposableEmailChecker
+from django.utils.translation import gettext as _
 
 
 
@@ -13,6 +15,14 @@ class OwnerSignupSerializer(serializers.Serializer):
   country = serializers.CharField(required=False, default='AU', max_length=10)
   timezone = serializers.CharField(required=False, allow_blank=True, max_length=50)
 
+  def validate_email(self, value):
+    """メールアドレスのバリデーション"""
+    email = value.lower().strip()
+    
+    if DisposableEmailChecker.is_disposable(email):
+      raise serializers.ValidationError(_('使い捨てメールアドレスは使用できません。'))
+    return email
+
 class CustomerSignupSerializer(serializers.Serializer):
   """サインアップ用"""
   session_token = serializers.CharField(required=False, allow_blank=True, max_length=64)
@@ -21,6 +31,14 @@ class CustomerSignupSerializer(serializers.Serializer):
   password = serializers.CharField(write_only=True, min_length=8)
   country = serializers.CharField(required=False, default='AU', max_length=10)
   timezone = serializers.CharField(required=False, allow_blank=True, max_length=50)
+  
+  def validate_email(self, value):
+    """メールアドレスのバリデーション"""
+    email = value.lower().strip()
+    
+    if DisposableEmailChecker.is_disposable(email):
+      raise serializers.ValidationError(_('使い捨てメールアドレスは使用できません。'))
+    return email
 
 class EmailConfirmSerializer(serializers.Serializer):
   """メール確認用"""
