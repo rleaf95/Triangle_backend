@@ -3,13 +3,19 @@ from django.db import models
 from django.utils import timezone
 import uuid
 from .mixins import SecurityMixin, PermissionMixin
-from .user_querysets import UserManager
+from .user_manager import UserManager
+from django.core.exceptions import ValidationError
+
 
 class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
   USER_TYPE_CHOICES = (
     ('OWNER', 'オーナー'),
     ('STAFF', 'スタッフ'),
     ('CUSTOMER', '顧客'),
+  )
+  USER_GROUP_CHOICES = (
+    ('CUSTOMER', 'カスタマー'),
+    ('STAFF_OWNER', 'スタッフ/オーナー'),
   )
   LANGUAGE_CHOICES = (
     ('ja', '日本語'),
@@ -36,11 +42,12 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
     
   # === Base  ===
   id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ユーザーID')
-  google_user_id = models.CharField( 'Google User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
-  line_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
-  facebook_user_id = models.CharField( 'Apple User ID', max_length=255, blank=True, null=True, unique=True, db_index=True )
-  email = models.EmailField( 'メールアドレス', unique=True, db_index=True, blank=True, )
-  user_type = models.CharField( 'ユーザータイプ', max_length=10, choices=USER_TYPE_CHOICES)
+  google_user_id = models.CharField( 'Google User ID', max_length=255, blank=True, null=True, unique=True )
+  line_user_id = models.CharField( 'Line User ID', max_length=255, blank=True, null=True, unique=True )
+  facebook_user_id = models.CharField( 'Facebook User ID', max_length=255, blank=True, null=True, unique=True )
+  email = models.EmailField( 'メールアドレス', blank=False)
+  user_type = models.CharField('ユーザータイプ', max_length=10, choices=USER_TYPE_CHOICES)
+  user_group = models.CharField('ユーザーグループ', max_length=20, choices=USER_GROUP_CHOICES, editable=False )
   profile_image = models.ImageField('プロフィール画像', upload_to='profiles/', blank=True, null=True )
   profile_image_url = models.URLField( 'プロフィール画像URL', blank=True, null=True, help_text='ソーシャルログインの画像URL')
   first_name = models.CharField('名', max_length=50, blank=True)
@@ -58,9 +65,6 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
   date_joined = models.DateTimeField('登録日時', default=timezone.now)
   last_login = models.DateTimeField('最終ログイン', null=True, blank=True)
   updated_at = models.DateTimeField('更新日時', auto_now=True)
-
-  # === カスタムUserManager ===
-  objects = UserManager()
 
   # === セキュリティ関連 ===
   failed_login_attempts = models.IntegerField('ログイン失敗回数', default=0)
@@ -84,36 +88,47 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
     db_table = 'users'
     verbose_name = 'User'
     verbose_name_plural = 'Users'
-    indexes = [
-      models.Index(fields=['email', 'user_type']),
-      models.Index(fields=['is_active', 'user_type']),
+    constraints = [ 
+      models.UniqueConstraint( 
+        fields=['email', 'user_group'],
+        name='unique_email_user_group'
+      ),
     ]
-  def __str__(self):
-
-    if self.user_type == 'STAFF':
-      from organizations.models import Tenant
-      tenants = Tenant.objects.with_member(self)
-      tenant_name = f"{tenants.count()}店舗に所属" if tenants.exists() else '所属なし'
-    elif self.user_type == 'OWNER':
-      from organizations.models import Company
-      companies = Company.objects.owned_by(self)
-      tenant_name = f"{companies.count()}社を経営" if companies.exists() else '会社なし'
-    else:
-      tenant_name = 'カスタマー'
+    indexes = [
+      models.Index(fields=['email', 'user_group'], name='idx_email_user_group'),
+      models.Index(fields=['user_type', 'is_active'], name='idx_user_type_active'),
+    ]
     
-    return f"{self.email} ({self.get_user_type_display()}) - {tenant_name}"
-
-  """国固有の税務情報を取得"""
-  def get_tax_info(self):
-    if self.country == 'AU':
-      return getattr(self, 'australian_tax_info', None)
-    elif self.country == 'JP':
-      return getattr(self, 'japanese_tax_info', None)
-    return None
-  
-  """税務情報が登録されているか"""
-  def has_tax_info(self):
-    return self.get_tax_info() is not None
+  def __str__(self):
+    return f"{self.email} ({self.get_user_type_display()})"
+    
+  def clean(self):
+    """バリデーション（新規作成 + 更新時）"""
+    super().clean()
+    if self.user_type == 'CUSTOMER':
+      existing = User.objects.filter(
+        email=self.email,
+        user_type='CUSTOMER'
+      ).exclude(pk=self.pk)
+      
+      if existing.exists():
+        raise ValidationError({'email': 'このメールアドレスは既に登録されています'})
+    
+    elif self.user_type in ['STAFF', 'OWNER']:
+      existing = User.objects.filter(email=self.email, user_type__in=['STAFF', 'OWNER']).exclude(pk=self.pk)  # ← 自分を除外
+      
+      if existing.exists(): raise ValidationError({ 'email': 'このメールアドレスは既に登録されています'})
+    
+  def save(self, *args, **kwargs):
+    if self.user_type == 'CUSTOMER':
+        self.user_group = 'CUSTOMER'
+    else:
+        self.user_group = 'STAFF_OWNER'
+    
+    if not kwargs.pop('skip_validation', False):
+        self.full_clean()
+    
+    super().save(*args, **kwargs)
 
 
 class StaffProfile(models.Model):

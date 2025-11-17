@@ -1,11 +1,17 @@
-from .auth import (
-  SignupSerializer,
+from .registration import (
+  OwnerSignupSerializer,
+  CustomerSignupSerializer,
   EmailConfirmSerializer,
   SocialLoginSerializer,
 )
+from .activation import (
+  ActivationSerializer
+)
 
 __all__ = [
-  'SignupSerializer',
+  'OwnerSignupSerializer',
+  'CustomerSignupSerializer',
   'EmailConfirmSerializer',
   'SocialLoginSerializer',
+  'ActivationSerializer',
 ]

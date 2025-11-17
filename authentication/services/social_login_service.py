@@ -3,9 +3,9 @@ from django.core.exceptions import ValidationError
 import requests, jwt
 import requests
 from users.models import User, CustomerRegistrationProgress
-from .user_registration_service import  RegistrationUtilsService
 from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
+from .user_activation_service import UserActivationService
 from django.db.models import Q
 
 class SocialLoginService:
@@ -143,7 +143,7 @@ class SocialLoginService:
   @classmethod
   def _handle_activate_social(cls, session_token, provider, data):
 
-    invitation = RegistrationUtilsService.get_invitation_from_session(session_token)
+    invitation =UserActivationService.get_invitation_from_session(session_token)
     user_id_field = f'{provider}_user_id'
 
     user = invitation.user
@@ -155,7 +155,7 @@ class SocialLoginService:
     user.profile_image_url = data['picture']
     user.save()
 
-    return RegistrationUtilsService.complete_activation(user, invitation, session_token)
+    return UserActivationService.complete_activation(user, invitation, session_token)
 
   @classmethod
   def _get_google_user_data(cls, access_token):

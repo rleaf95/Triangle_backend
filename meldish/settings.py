@@ -30,6 +30,7 @@ INSTALLED_APPS = [
   'users',
   'invitation',
   'permissions',
+  'common',
   
   # サードパーティアプリ
   'rest_framework',
@@ -181,10 +182,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # ===== django-allauth設定 =====
 
 AUTHENTICATION_BACKENDS = [
-  # Django標準認証
-  'django.contrib.auth.backends.ModelBackend',
-  # allauth認証
-  'allauth.account.auth_backends.AuthenticationBackend',
+  'users.backends.CustomerAuthBackend',
+  'users.backends.StaffOwnerAuthBackend',
 ]
 
 # アカウント設定
@@ -360,6 +359,10 @@ CSRF_TRUSTED_ORIGINS = config(
   default='http://localhost:19006,http://localhost:8081,http://localhost:3000'
 ).split(',')
 
+# USERNAME_FIELD が unique でない警告を無視
+SILENCED_SYSTEM_CHECKS = [
+    'auth.W004', 
+]
 
 # ===== ロギング設定 =====
 
@@ -410,6 +413,14 @@ LOGGING = {
       'backupCount': 10,
       'formatter': 'verbose',
     },
+    'email_file': {
+      'level': 'INFO',
+      'class': 'logging.handlers.RotatingFileHandler',
+      'filename': LOGS_DIR / 'email.log',
+      'maxBytes': 1024 * 1024 * 10,
+      'backupCount': 10,
+      'formatter': 'verbose',
+    },
   },
   'loggers': {
     'django': {
@@ -425,6 +436,11 @@ LOGGING = {
     'security': {
       'handlers': ['security_file', 'console'],
       'level': 'WARNING',
+      'propagate': False,
+    },
+    'email': {
+      'handlers': ['email_file', 'console'],
+      'level': 'INFO',
       'propagate': False,
     },
   },

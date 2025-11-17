@@ -4,13 +4,14 @@ from .user_registration_service import (
 from .social_login_service import (
   SocialLoginService
 )
-from .registration_utils_service import (
-  RegistrationUtilsService
+from .user_activation_service import(
+  UserActivationService
 )
+
 
 
 __all__ = [
   'UserRegistrationService',
   'SocialLoginService',
-  'RegistrationUtilsService'
+  'UserActivationService'
 ]

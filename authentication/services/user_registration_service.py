@@ -10,140 +10,117 @@ from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Q
 from .registration_utils_service import RegistrationUtilsService
+from authentication.models import PendingUser
+import secrets
+from datetime import timedelta
+from django.contrib.auth.hashers import make_password
+from .email_service import RegistrationEmailService
 
 class UserRegistrationService:
-  
-  @classmethod
-  @transaction.atomic
-  def register_user(cls, session_token, user_type, data):
 
-    if session_token and user_type == 'STAFF':
-      return cls._handle_activate( session_token, data )
-    elif not session_token and user_type == 'CUSTOMER' or user_type == 'OWNER':
-      return  cls._handle_signup( user_type, data )
-    else :
-      raise ValidationError("許可されていない登録です")
-      
-  
   @classmethod
-  def _handle_signup(cls, user_type, data):
+  def register_pending_user(cls, email, password, user_type, country, timezone):
 
-    email = data.get('email')
-    existing_user = User.objects.find_by_email(email)
+    PendingUser.objects.filter(email=email).delete()
+
+    existing_user = User.objects.email_exists_in_group(email, user_type)
 
     if existing_user:
       if existing_user.has_usable_password():
         raise ValidationError('すでに登録済みのアドレスです。ログインしてください。')
-      return cls._handle_link_social_account(existing_user, data)
-
-    user = User.objects.create_user(
-      email=data.get('email'),
-      password=data.get('password'),
+    
+    token = secrets.token_urlsafe(32)
+    expires_at = timezone.now() + timedelta(hours=24)
+    
+    pending_user = PendingUser.objects.create(
+      user = existing_user if existing_user else None,
+      email=email,
+      password_hash=make_password(password),
       user_type=user_type,
-      country=data.get('country', ''),
-      timezone=data.get('timezone', ''),
-      language=data.get('language',''),
-      auth_provider='email',
-      first_name=data.get('first_name', ''),
-      last_name=data.get('last_name',''),
-      phone_number=data.get('phone_number',''),
-      is_email_verified = False,
-      profile_image = data.get('picture',''),
-      is_active = False
+      verification_token=token,
+      token_expires_at=expires_at,
+      country=country,
+      timezone=timezone
     )
 
+    success, error_message = RegistrationEmailService.send_registration_confirmation(pending_user)
+
+    if success:
+      if existing_user:
+        return pending_user, True, '既存のアカウントが見つかりました。セキュリティのため、メールアドレスの確認をお願いします'
+      
+      return pending_user, False, 'メールアドレス認証メールを送信しました。メールを確認してください。'
+    else:
+      raise ValidationError(error_message)
+  
+  @classmethod
+  def verify_and_activate(cls, token):
+    try:
+      pending_user = PendingUser.objects.get(verification_token=token)
+    except PendingUser.DoesNotExist:
+      raise ValidationError('無効な確認リンクです')
+    
+    if not pending_user.is_token_valid():
+      raise ValidationError('確認リンクの有効期限が切れています')
+    
+    user_type = pending_user.user_type
+    if pending_user.user != None:
+      user = pending_user.link_social_account()
+      return user, True, 'パスワードの設定が完了しました。'
+    
+    user = pending_user.create_user()
     if user_type == 'CUSTOMER':
       progress = CustomerRegistrationProgress.objects.get(user=user)
       user._cached_customer_progress = progress
 
-    if user_type == 'OWNER':
-      cls.create_user_relationships(user)  
+    # if user_type == 'OWNER':
+    #   cls.create_user_relationships(user)  
     
-    return user, None, 'メール認証リンクを送信しました。メールを確認してください。'
+    return user, False, '登録が完了しました'
+  
   
   @classmethod
-  def _handle_link_social_account(cls, existing_user, data):
+  def resend_verification_email(cls, email):
+
+    try:
+      pending_user = PendingUser.objects.get(email=email)
+    except PendingUser.DoesNotExist:
+      raise ValidationError('登録が見つかりません。もう一度やり直してください。')
     
-    password = data.get('password')
-    if not password:
-      raise ValidationError('パスワードを設定してください。')
-    
-    existing_user.set_password(password)
-    existing_user.auth_provider = 'email'
-    update_fields = ['password', 'auth_provider']
-    
-    existing_user.save(update_fields=update_fields)
+    pending_user.verification_token = secrets.token_urlsafe(32)
+    pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
+    pending_user.save()
 
-    return ( existing_user, None, 'メール認証リンクを送信しました。メールを確認後、パスワードでもログインできます。')
-    
-  
-  @classmethod
-  def _handle_activate(cls, session_token, data):
-    required_fields = ['password', 'email']
-    missing_fields = [field for field in required_fields if field not in data]
-    if missing_fields:
-      raise ValidationError(f"必須フィールドが不足しています: {', '.join(missing_fields)}")
+    success, error_message = RegistrationEmailService.resend_confirmation(pending_user)
 
-    invitation = RegistrationUtilsService.get_invitation_from_session(session_token)
-
-    user = invitation.user
-    password = data['password']
-    user.set_password(password)
-    user.is_active = True
-    user.is_email_verified = True
-    user.auth_provider = 'email'
-    user.profile_image = data.get('picture', '')
-
-    user.save(update_fields=[
-      'password', 'is_active', 'is_email_verified', 'auth_provider', 'profile_image'
-    ])
-
-    return RegistrationUtilsService.complete_activation(user, invitation, session_token)
-
-  
-
-  @classmethod
-  def handle_profile_creation(cls, user, profile_data=None):
-    """プロファイル作成・更新の共通処理"""
-    if profile_data:
-      if user.user_type == 'STAFF':
-        ProfileService.get_or_create_staff_profile(user, profile_data)
-      else:
-        pass
-    
-
-  
-  @classmethod
-  def create_user_relationships(cls, user):
-    """
-    ユーザーと会社・テナントの関連を作成（オーナー用）
-    """
-    if user.user_type == 'OWNER':
-      cls._create_owner_relationships(user)
+    if success:
+      return pending_user
     else:
-      pass
+      raise ValidationError(error_message)
   
+
   @classmethod
-  def _create_owner_relationships(cls, user):
-    """
-    オーナーの関連を作成
-    新規登録の場合は後で会社作成時に紐付けるため、ここでは何もしない
-    """
-    # TODO: 必要に応じて実装
-    pass
-  
-  @classmethod
-  def _create_customer_relationships(cls, user):
-    """カスタマーの関連を作成"""
-    # TODO: 必要に応じて実装
-    pass
-  
-  @classmethod
-  def process_invitation(cls, invitation, user):
-    """招待を処理（使用済みにする）"""
-    if invitation:
-      invitation.is_used = True
-      invitation.registered_user = user
-      invitation.used_at = timezone.now()
-      invitation.save()
+  def change_pending_email(cls, old_email, new_email):
+    try:
+      pending_user = PendingUser.objects.get(email=old_email)
+    except PendingUser.DoesNotExist:
+      raise ValidationError('登録が見つかりません')
     
+    pending_user.email = new_email
+    pending_user.verification_token = secrets.token_urlsafe(32)
+    pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
+    pending_user.save()
+    
+    success, error_message = RegistrationEmailService.send_email_change_confirmation(pending_user, new_email)
+    
+    if success:
+      return pending_user
+    else:
+      raise ValidationError(error_message)
+  
+  
+    
+###今日すること###
+# ソーシャルメディアの実装を過去のチャットからアイデア持ってきて実装
+# テストの実装
+# 仕様書作るー多言語対応の設定を同時に
