@@ -11,7 +11,7 @@ class RegistrationEmailService:
   def send_registration_confirmation(cls, pending_user):
     current_language = get_language() 
 
-    verification_url = f"{settings.FRONTEND_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
     context = {
       'email': pending_user.email,
       'verification_url': verification_url,
@@ -32,7 +32,7 @@ class RegistrationEmailService:
   @classmethod
   def resend_confirmation(cls, pending_user):
     current_language = get_language() 
-    verification_url = f"{settings.FRONTEND_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
 
     context = {
       'email': pending_user.email,
@@ -56,7 +56,7 @@ class RegistrationEmailService:
   @classmethod
   def send_email_change_confirmation(cls, pending_user, new_email):
     current_language = get_language() 
-    verification_url = f"{settings.FRONTEND_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
     
     context = {
       'old_email': pending_user.email,

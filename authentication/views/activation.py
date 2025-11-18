@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 
-from ..serializers import SignupSerializer
+# from authentication.serializers import ActivationSerializer
 from users.serializers import UserSerializer
 from ..services import UserRegistrationService
 
@@ -15,7 +15,7 @@ class ActivateAPIView(APIView):
 	
 	def post(self, request):
 		
-		serializer = SignupSerializer(data=request.data)
+		# serializer = ActivationSerializer(data=request.data)
 		if not serializer.is_valid():
 			return Response( serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 		data = serializer.validated_data

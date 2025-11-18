@@ -22,7 +22,7 @@ from django.utils.translation import gettext as _
 class UserRegistrationService:
 
   @classmethod
-  def register_pending_user(cls, email, password, user_type, country, timezone):
+  def register_pending_user(cls, email, password, user_type, country, user_timezone, first_name, last_name):
 
     PendingUser.objects.filter(email=email).delete()
 
@@ -32,24 +32,25 @@ class UserRegistrationService:
       if existing_user.has_usable_password():
         raise ValidationError(_('すでに登録済みのアドレスです。ログインしてください。'))
     
-    token = secrets.token_urlsafe(32)
-    expires_at = timezone.now() + timedelta(hours=24)
-    
-    pending_user = PendingUser.objects.create(
-      user = existing_user if existing_user else None,
-      email=email,
-      password_hash=make_password(password),
-      user_type=user_type,
-      verification_token=token,
-      token_expires_at=expires_at,
-      country=country,
-      timezone=timezone
-    )
-
     try:
-      RegistrationEmailService.send_registration_confirmation(pending_user)
+      with transaction.atomic():
+        token = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(hours=24)
+        
+        pending_user = PendingUser.objects.create(
+          user = existing_user if existing_user else None,
+          email=email,
+          password_hash=make_password(password),
+          user_type=user_type,
+          verification_token=token,
+          token_expires_at=expires_at,
+          country=country,
+          user_timezone=user_timezone,
+          first_name=first_name,
+          last_name=last_name
+        )
+        RegistrationEmailService.send_registration_confirmation(pending_user)
     except EmailSendException:
-      pending_user.delete()
       raise
 
     if existing_user:
@@ -67,11 +68,13 @@ class UserRegistrationService:
       raise ValidationError(_('確認リンクの有効期限が切れています'))
     
     user_type = pending_user.user_type
+
     if pending_user.user != None:
       user = pending_user.link_social_account()
       return user, True, _('パスワードの設定が完了しました。')
     
     user = pending_user.create_user()
+    
     if user_type == 'CUSTOMER':
       progress = CustomerRegistrationProgress.objects.get(user=user)
       user._cached_customer_progress = progress
@@ -88,42 +91,35 @@ class UserRegistrationService:
     try:
       pending_user = PendingUser.objects.get(email=email)
     except PendingUser.DoesNotExist:
-      raise ValidationError(_('登録が見つかりません。もう一度やり直してください。'))
+      raise NotFound(_('登録が見つかりません。もう一度やり直してください。'))
     
     pending_user.verification_token = secrets.token_urlsafe(32)
     pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
     pending_user.save()
 
-    success, error_message = RegistrationEmailService.resend_confirmation(pending_user)
+    try:
+      RegistrationEmailService.resend_confirmation(pending_user)
+    except EmailSendException:
+      raise
 
-    if success:
-      return pending_user
-    else:
-      raise ValidationError(error_message)
-  
+    return pending_user
 
   @classmethod
   def change_pending_email(cls, old_email, new_email):
     try:
       pending_user = PendingUser.objects.get(email=old_email)
     except PendingUser.DoesNotExist:
-      raise ValidationError(_('登録が見つかりません'))
+      raise NotFound(_('登録が見つかりません'))
     
-    pending_user.email = new_email
-    pending_user.verification_token = secrets.token_urlsafe(32)
-    pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
-    pending_user.save()
-    
-    success, error_message = RegistrationEmailService.send_email_change_confirmation(pending_user, new_email)
-    
-    if success:
-      return pending_user
-    else:
-      raise ValidationError(error_message)
-  
-  
-    
-###今日すること###
-# ソーシャルメディアの実装を過去のチャットからアイデア持ってきて実装
-# テストの実装
-# 仕様書作るー多言語対応の設定を同時に
+    try:
+      with transaction.atomic():
+        pending_user.email = new_email
+        pending_user.verification_token = secrets.token_urlsafe(32)
+        pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
+        pending_user.save()
+      
+        RegistrationEmailService.send_email_change_confirmation(pending_user, new_email)
+    except EmailSendException:
+      raise
+
+    return pending_user

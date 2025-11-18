@@ -7,11 +7,14 @@ from .social_login_service import (
 from .user_activation_service import(
   UserActivationService
 )
-
+from.email_service import(
+  RegistrationEmailService
+)
 
 
 __all__ = [
   'UserRegistrationService',
   'SocialLoginService',
-  'UserActivationService'
+  'UserActivationService',
+  'RegistrationEmailService',
 ]

@@ -7,7 +7,7 @@ print("\n" + "=" * 80)
 print("Loading settings_test.py")
 print("=" * 80)
 
-
+FRONTEND_WEB_URL = os.environ.get('FRONTEND_URL', default='http://localhost:3000')
 # ===================================
 # Database - SQLiteに強制変更
 # ===================================
@@ -19,6 +19,11 @@ DATABASES = {
 }
 
 print(f"Database engine: {DATABASES['default']['ENGINE']}")
+
+# ===================================
+# Security - テスト用の設定
+# ===================================
+
 
 # ===================================
 # Security - テスト用の設定

@@ -1,8 +1,17 @@
-from .registration import SignupAPIView, EmailConfirmAPIView
+from .registration import (
+  OwnerRegisterView, 
+  CustomerRegisterView,
+  ResendVerificationEmailView,
+  ChangePendingEmailView,
+  VerifyEmailView
+)
 from .activation import ActivateAPIView
 
 __all__ = [
-  'SignupAPIView',
-  'EmailConfirmAPIView',
+  'OwnerRegisterView',
+  'CustomerRegisterView',
+  'VerifyEmailView',
+  'ResendVerificationEmailView',
+  'ChangePendingEmailView',
   'ActivateAPIView'
 ]
