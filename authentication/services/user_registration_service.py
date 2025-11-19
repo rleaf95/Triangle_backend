@@ -88,7 +88,7 @@ class UserRegistrationService:
       raise ValidationError('登録が見つかりません。もう一度やり直してください。')
     
     pending_user.verification_token = secrets.token_urlsafe(32)
-    pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
+    pending_user.token_s = timezone.now() + timedelta(hours=24)
     pending_user.save()
 
     success, error_message = RegistrationEmailService.resend_confirmation(pending_user)

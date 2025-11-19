@@ -6,7 +6,6 @@ from django.contrib.auth import authenticate
 
 class OwnerSignupSerializer(serializers.Serializer):
   """サインアップ用"""
-  session_token = serializers.CharField(required=False, allow_blank=True, max_length=64)
   user_type = serializers.ChoiceField(required=True ,choices=["OWNER"])
   email = serializers.EmailField(required=True)
   password = serializers.CharField(write_only=True, min_length=8)
@@ -15,7 +14,6 @@ class OwnerSignupSerializer(serializers.Serializer):
 
 class CustomerSignupSerializer(serializers.Serializer):
   """サインアップ用"""
-  session_token = serializers.CharField(required=False, allow_blank=True, max_length=64)
   user_type = serializers.ChoiceField(required=True ,choices=["OWNER"])
   email = serializers.EmailField(required=True)
   password = serializers.CharField(write_only=True, min_length=8)

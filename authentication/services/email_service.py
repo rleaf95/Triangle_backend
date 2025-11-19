@@ -70,7 +70,7 @@ class RegistrationEmailService:
       subject='新しいメールアドレスの確認',
       html_content=html_content,
       text_content=text_content,
-      logging_text='Send verification (change)mail'
+      logging_text='Send verification changed mail'
     )
 
     return  success, error_type, error_message

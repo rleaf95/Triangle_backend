@@ -22,7 +22,7 @@ INSTALLED_APPS = [
   'django.contrib.sessions',
   'django.contrib.messages',
   'django.contrib.staticfiles',
-  'django.contrib.sites',  # django-allauthに必要
+  'django.contrib.sites',
 
   # 自作アプリ
   'authentication',
@@ -52,8 +52,8 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
-  'django.middleware.security.SecurityMiddleware',
   'corsheaders.middleware.CorsMiddleware',
+  'django.middleware.security.SecurityMiddleware',
   'django.contrib.sessions.middleware.SessionMiddleware',
   'django.middleware.locale.LocaleMiddleware',
   'django.middleware.common.CommonMiddleware',
@@ -246,7 +246,7 @@ SOCIALACCOUNT_FORMS = {
 
 REST_FRAMEWORK = {
   'DEFAULT_AUTHENTICATION_CLASSES': [
-    'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'authentication.authentication.CookieJWTAuthentication',
   ],
   'DEFAULT_PERMISSION_CLASSES': [
     'rest_framework.permissions.IsAuthenticated',
