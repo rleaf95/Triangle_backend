@@ -1,30 +1,63 @@
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
 from django.conf import settings
+from django.utils.translation import gettext as _
 from django.core.mail import EmailMessage
-from django.core.mail.backends.smtp import SMTPServerDisconnected
+from rest_framework import status
+from rest_framework.exceptions import APIException
 from smtplib import (
     SMTPException, 
     SMTPAuthenticationError, 
     SMTPConnectError,
     SMTPRecipientsRefused,
-    SMTPSenderRefused
+    SMTPSenderRefused,
 )
-from socket import gaierror, timeout as SocketTimeout
+from rest_framework import status
 import logging
 email_logger = logging.getLogger('email')
 
 
-class EmailSendResult:
-  def __init__(self, success, error_type=None, error_message=None):
-    self.success = success
-    self.error_type = error_type
-    self.error_message = error_message
-
+class EmailSendException(APIException):
+  """メール送信エラー"""
+  pass
 
 class EmailService:
-  @staticmethod
-  def send_template_email(to_email, subject, html_content, text_content, logging_text):
+  ERROR_TEMPLATES = {
+    'authentication': {
+      'message': _('システムエラーが発生しました。管理者に連絡してください。'),
+      'status_code': status.HTTP_500_INTERNAL_SERVER_ERROR
+    },
+    'connection': {
+      'message': _('メール送信に失敗しました。しばらく経ってから再度お試しください。'),
+      'status_code': status.HTTP_503_SERVICE_UNAVAILABLE
+    },
+    'invalid_email': {
+      'message': _('メールアドレスの形式が正しくありません。'),
+      'status_code': status.HTTP_400_BAD_REQUEST
+    },
+    'recipient_refused': {
+      'message': _('このメールアドレスは存在しないか、受信できません。'),
+      'status_code': status.HTTP_400_BAD_REQUEST
+    },
+    'smtp': {
+      'message': _('メール送信に失敗しました。メールアドレスをご確認ください。'),
+      'status_code': status.HTTP_400_BAD_REQUEST
+    },
+    'unknown': {
+      'message': _('メール送信に失敗しました。'),
+      'status_code': status.HTTP_500_INTERNAL_SERVER_ERROR
+    }
+  }
+
+  @classmethod
+  def _raise_error(cls, error_type):
+    """テンプレートから例外を生成してraise"""
+    error_template = cls.ERROR_TEMPLATES.get(error_type, cls.ERROR_TEMPLATES['unknown'])
+    
+    exception = EmailSendException(error_template['message'])
+    exception.status_code = error_template['status_code']
+    raise exception
+
+  @classmethod
+  def send_template_email(cls, to_email, subject, html_content, text_content, logging_text):
     from django.core.mail import send_mail
 
     try:
@@ -37,60 +70,25 @@ class EmailService:
       email.attach_alternative(html_content, "text/html")
       email.send(fail_silently=False)
       email_logger.info(f'Success: {logging_text}: {to_email}')
-      return EmailSendResult(success=True)
+    
+      return True 
       
     except SMTPAuthenticationError as e:
-      email_logger.error(f"SMTP authentication error: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='authentication',
-        error_message='メールサーバーの認証に失敗しました'
-      )
-        
-    except SMTPConnectError as e:
-      email_logger.error(f"SMTP connection error: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='connection',
-        error_message='メールサーバーに接続できませんでした'
-      )
-        
+      email_logger.error(f'SMTP認証失敗: {to_email}, エラー: {str(e)}')
+      cls._raise_error('authentication')
+    
     except SMTPRecipientsRefused as e:
-      email_logger.error(f"Recipients refused for {to_email}: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='invalid_recipient',
-        error_message='メールアドレスが無効です'
-      )
-        
-    except SMTPSenderRefused as e:
-      email_logger.error(f"Sender refused: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='sender_refused',
-        error_message='メール送信元が拒否されました'
-      )
-        
-    except SMTPServerDisconnected as e:
-      email_logger.error(f"SMTP server disconnected: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='disconnected',
-        error_message='メールサーバーとの接続が切断されました'
-      )
-        
-    except (gaierror, SocketTimeout) as e:
-      email_logger.error(f"Network error: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='network',
-        error_message='ネットワークエラーが発生しました'
-      )
-        
+      email_logger.warning(f'受信者拒否: {to_email}, エラー: {str(e)}')
+      cls._raise_error('recipient_refused')
+    
+    except SMTPConnectError as e:
+      email_logger.error(f'SMTP接続失敗: {to_email}, エラー: {str(e)}')
+      cls._raise_error('connection')
+    
+    except SMTPException as e:
+      email_logger.error(f'SMTP送信失敗: {to_email}, エラー: {str(e)}')
+      cls._raise_error('smtp')
+    
     except Exception as e:
-      email_logger.error(f"Unexpected error sending email to {to_email}: {str(e)}")
-      return EmailSendResult(
-        success=False,
-        error_type='unknown',
-        error_message='予期しないエラーが発生しました'
-      )
+      email_logger.error(f'{logging_text}失敗: {to_email}, エラー: {str(e)}', exc_info=True)
+      cls._raise_error('unknown')

@@ -34,12 +34,12 @@ class UserManager(BaseUserManager):
   
   def email_exists_in_group(self, email, user_type):
     if user_type == 'CUSTOMER':
-      return self.by_email(email).customers().exists()
+      return self.by_email(email).customers().first()
     
     elif user_type in ['STAFF', 'OWNER']:
-      return self.by_email(email).staff_or_owner().exists()
+      return self.by_email(email).staff_or_owner().first()
     
-    return False
+    return None
   
   def in_tenant(self, tenant):
     return self.get_queryset().in_tenant(tenant)

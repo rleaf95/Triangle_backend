@@ -1,13 +1,13 @@
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 import uuid
-from .mixins import SecurityMixin, PermissionMixin
+from .mixins import SecurityMixin
 from .user_manager import UserManager
 from django.core.exceptions import ValidationError
 
 
-class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
+class User(AbstractBaseUser, SecurityMixin, PermissionsMixin,):
   USER_TYPE_CHOICES = (
     ('OWNER', 'オーナー'),
     ('STAFF', 'スタッフ'),
@@ -77,7 +77,7 @@ class User(AbstractBaseUser, SecurityMixin, PermissionMixin,):
   # === 国際化設定 ===
   language = models.CharField('言語', max_length=10, choices=LANGUAGE_CHOICES, blank=True, null=True)
   country = models.CharField('国', max_length=2, choices=COUNTRY_CHOICES, blank=True, null=True )
-  timezone = models.CharField('タイムゾーン', max_length=50, choices=TIMEZONE_CHOICES, blank=True, null=True)
+  user_timezone = models.CharField('タイムゾーン', max_length=50, choices=TIMEZONE_CHOICES, blank=True, null=True)
     
   objects = UserManager()
     

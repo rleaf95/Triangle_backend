@@ -14,11 +14,14 @@ class PendingUser(models.Model):
     ('CUSTOMER', '顧客'),
   )
 
+  first_name = models.CharField(max_length=50)
+  last_name = models.CharField(max_length=50)
+
   email = models.EmailField(unique=True)
   password_hash = models.CharField(max_length=255)
   user_type = models.CharField(choices=USER_TYPE_CHOICES, max_length=20)
   country = models.CharField(max_length=2, choices=COUNTRY_CHOICES, blank=True, null=True )
-  timezone = models.CharField('タイムゾーン', max_length=50, blank=True, null=True)
+  user_timezone = models.CharField('タイムゾーン', max_length=50, blank=True, null=True)
 
   #For link Sicial Account
   user = models.OneToOneField(User, blank=True, null=True, on_delete=models.CASCADE, related_name='pending_user', )
@@ -53,7 +56,7 @@ class PendingUser(models.Model):
       is_active=True,
       auth_provider='email',
       country=self.country,
-      timezone=self.timezone
+      user_timezone=self.user_timezone
     )
     self.delete()
     return user
@@ -61,21 +64,23 @@ class PendingUser(models.Model):
   @transaction. atomic
   def link_social_account(self):
     user = self.user
-    user.password=self.password_hash,
-    user.auth_provider='email',
+    user.password=self.password_hash
+    user.auth_provider='email'
     update_fields = ['password', 'auth_provider']
-    if user.is_email_verified != self.is_email_verified or user.is_active != self.is_active:
-      user.is_email_verified=True,
-      user.is_active=True,
-      update_fields.append('is_email_verified', 'is_active')
+    if not user.is_email_verified  or not user.is_active:
+      user.is_email_verified=True
+      user.is_active=True
+      update_fields.append('is_email_verified')
+      update_fields.append('is_active')
     if user.country != self.country:
       user.country = self.country
       update_fields.append('country')
-    if user.timezone != self.timezone:
-      user.timezone = self.timezone
-      update_fields.append('timezone')
+    if user.user_timezone != self.user_timezone:
+      user.user_timezone = self.user_timezone
+      update_fields.append('user_timezone')
     
     user.save(update_fields=update_fields)
+    self.delete()
     return user
     
     
