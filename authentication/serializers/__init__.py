@@ -7,6 +7,10 @@ from .registration import (
 from .activation import (
   ActivationSerializer
 )
+from .login import (
+  BusinessLoginSerializer,
+  CustomerLoginSerializer
+)
 
 __all__ = [
   'OwnerSignupSerializer',
@@ -14,4 +18,6 @@ __all__ = [
   'EmailConfirmSerializer',
   'SocialLoginSerializer',
   'ActivationSerializer',
+  'BusinessLoginSerializer',
+  'CustomerLoginSerializer'
 ]

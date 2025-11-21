@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from authentication.utils import AuthRateLimiter
 from rest_framework.exceptions import Throttled
 
-from ..serializers import OwnerSignupSerializer, CustomerSignupSerializer, EmailConfirmSerializer
+from ..serializers import OwnerSignupSerializer, CustomerSignupSerializer
 from users.serializers import UserSerializer
 from ..services import UserRegistrationService
 from rest_framework.exceptions import ValidationError, NotFound
@@ -24,7 +24,6 @@ class OwnerRegisterView(APIView):
 	def post(self, request):
 		rate_limiter = AuthRateLimiter()
 		ip = self.get_client_ip(request)
-		platform = self.get_platform(request)
 			
 		if not rate_limiter.check_register_limit(ip):
 			remaining_time = rate_limiter.get_register_reset_time(
@@ -43,10 +42,10 @@ class OwnerRegisterView(APIView):
 				email=serializer.validated_data['email'],
 				password=serializer.validated_data['password'],
 				user_type='OWNER',
-				country=serializer.validated_datap['country'],				
-				user_timezone=serializer.validated_datap['timezone'],
-				last_name=serializer.validated_datap['last_name'],
-				first_name=serializer.validated_datap['first_name'],
+				country=serializer.validated_data['country'],				
+				user_timezone=serializer.validated_data['timezone'],
+				last_name=serializer.validated_data['last_name'],
+				first_name=serializer.validated_data['first_name'],
 			)
 		except (ValidationError, EmailSendException):
 			raise
@@ -54,7 +53,7 @@ class OwnerRegisterView(APIView):
 		return Response({
 		'email': pending_user.email,
 		'is_link_social': is_link_social,
-		'message': message,
+		'detail': message,
 	}, status=status.HTTP_201_CREATED)
 
 
@@ -70,16 +69,16 @@ class CustomerRegisterView(APIView):
 				email=serializer.validated_data['email'],
 				password=serializer.validated_data['password'],
 				user_type='OWNER',
-				country=serializer.validated_datap['country'],				
-				user_timezone=serializer.validated_datap['timezone'],
-				last_name=serializer.validated_datap['last_name'],
-				first_name=serializer.validated_datap['first_name'],		
+				country=serializer.validated_data['country'],				
+				user_timezone=serializer.validated_data['timezone'],
+				last_name=serializer.validated_data['last_name'],
+				first_name=serializer.validated_data['first_name'],		
 			)
 		except (ValidationError, EmailSendException):
 			raise
 		
 		return Response({
-		'message': message,
+		'detail': message,
 		'email': pending_user.email,
 		'is_link_social': is_link_social,
 	}, status=status.HTTP_201_CREATED)
@@ -98,7 +97,21 @@ class VerifyEmailView(TokenResponseMixin, APIView):
 		except (NotFound, ValidationError):
 			raise
 
-		return self.create_token_response(user, message, is_link_social, platform,)
+		refresh = RefreshToken.for_user(user)
+		access_token = str(refresh.access_token)
+		refresh_token = str(refresh)
+		
+		serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type' 'progress'])
+
+		response_data = {
+      'detail': message,
+      'user': serializer.data,
+      'is_link_social': is_link_social
+    }
+
+		status = status.HTTP_201_CREATED
+
+		return self.create_token_response(access_token, refresh_token, response_data, status, platform)
 
 
 class ResendVerificationEmailView(APIView):
@@ -126,7 +139,7 @@ class ResendVerificationEmailView(APIView):
 			raise
 		
 		return Response(
-			{'message': _('確認メールを再送信しました')},
+			{'detail': _('確認メールを再送信しました')},
 			status=status.HTTP_200_OK
     )
 
@@ -157,6 +170,6 @@ class ChangePendingEmailView(APIView):
 			raise
 
 		return Response({
-			'message': _('%(new_email)s に確認メールを送信しました')%{'new_email':new_email},
+			'detail': _('%(new_email)s に確認メールを送信しました')%{'new_email':new_email},
 			'email': pending_user.email,
 		},status=status.HTTP_200_OK)

@@ -184,6 +184,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 AUTHENTICATION_BACKENDS = [
   'users.backends.CustomerAuthBackend',
   'users.backends.StaffOwnerAuthBackend',
+  'django.contrib.auth.backends.ModelBackend',
 ]
 
 # アカウント設定

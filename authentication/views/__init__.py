@@ -1,6 +1,18 @@
-from .registration import SignupAPIView, EmailConfirmAPIView
+from .registration import (
+  OwnerRegisterView, 
+  CustomerRegisterView, 
+  VerifyEmailView,
+  ResendVerificationEmailView,
+  ChangePendingEmailView
+)
 from .activation import ActivateAPIView
 from .mixins import TokenResponseMixin
+from .login import (
+  CurrentUserView,
+  CustomerLoginView,
+  StaffOwnerLoginView,
+  RefreshTokenView
+)
 
 __all__ = [
   'OwnerRegisterView',
@@ -10,4 +22,8 @@ __all__ = [
   'ChangePendingEmailView',
   'ActivateAPIView',
   'TokenResponseMixin',
+  'CurrentUserView',
+  'CustomerLoginView',
+  'StaffOwnerLoginView',
+  'RefreshTokenView'
 ]
