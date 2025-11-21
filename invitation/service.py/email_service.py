@@ -8,7 +8,7 @@ class InvitationEmailService:
     @classmethod
     def send_staff_invitation(cls, invitation):
         """スタッフ招待メール"""
-        invitation_url = f"{settings.FRONTEND_URL}/staff/invitation/{invitation.token}"
+        invitation_url = f"{settings.FRONTEND_WEB_URL}/staff/invitation/{invitation.token}"
         
         context = {
             'email': invitation.email,

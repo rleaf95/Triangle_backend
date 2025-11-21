@@ -141,6 +141,7 @@ LOCALE_PATHS = [
 USE_I18N = True
 USE_L10N = True
 
+
 # タイムゾーン設定
 TIME_ZONE = 'Australia/Brisbane'
 USE_TZ = True 
@@ -241,6 +242,8 @@ GOOGLE_ANDROID_CLIENT_ID = os.environ.get('GOOGLE_ANDROID_CLIENT_ID', '')
 SOCIALACCOUNT_FORMS = {
   'signup': 'your_app.forms.CustomSocialSignupForm',
 }
+
+USE_DISPOSABLE_EMAIL_API = True
 
 # ===== REST Framework設定 =====
 
@@ -400,7 +403,7 @@ LOGGING = {
     'file': {
       'level': 'INFO',
       'class': 'logging.handlers.RotatingFileHandler',
-      'filename': LOGS_DIR / 'django.log',
+      'filename': LOGS_DIR / 'app.log',
       'maxBytes': 1024 * 1024 * 10,  # 10MB
       'backupCount': 10,
       'formatter': 'verbose',
