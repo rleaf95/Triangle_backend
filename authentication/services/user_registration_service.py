@@ -30,7 +30,7 @@ class UserRegistrationService:
 
     if existing_user:
       if existing_user.has_usable_password():
-        raise ValidationError(_('すでに登録済みのアドレスです。ログインしてください。'))
+        raise ValidationError(_('This email is already registered. Please log in.'))
     
     try:
       with transaction.atomic():
@@ -54,24 +54,24 @@ class UserRegistrationService:
       raise
 
     if existing_user:
-      return pending_user, True, _('既存のアカウントが見つかりました。セキュリティのため、メールアドレスの確認をお願いします。')
-    return pending_user, False, _('メールアドレス認証メールを送信しました。メールを確認してください。')
+      return True, _('An existing account was found. For security reasons, please click the link in the email to verify your email address.')
+    return False, _('A verification email has been sent. Please click the link in the email to activate your account.')
   
   @classmethod
   def verify_and_activate(cls, token):
     try:
       pending_user = PendingUser.objects.get(verification_token=token)
     except PendingUser.DoesNotExist:
-      raise NotFound(_('無効な確認リンクです'))
+      raise NotFound(_('The verification link is invalid.'))
     
     if not pending_user.is_token_valid():
-      raise ValidationError(_('確認リンクの有効期限が切れています'))
+      raise ValidationError(_('The verification link has expired. Please Sign up again.'))
     
     user_type = pending_user.user_type
 
     if pending_user.user != None:
       user = pending_user.link_social_account()
-      return user, True, _('パスワードの設定が完了しました。')
+      return user, True, _('Your password has been set successfully.')
     
     user = pending_user.create_user()
     
@@ -82,7 +82,7 @@ class UserRegistrationService:
     # if user_type == 'OWNER':
     #   cls.create_user_relationships(user)  
     
-    return user, False, _('登録が完了しました')
+    return user, False, _('Your registration is complete.')
   
   
   @classmethod
@@ -91,7 +91,7 @@ class UserRegistrationService:
     try:
       pending_user = PendingUser.objects.get(email=email)
     except PendingUser.DoesNotExist:
-      raise NotFound(_('登録が見つかりません。もう一度やり直してください。'))
+      raise NotFound(_("We couldn't find your registration. Please try again."))
     
     pending_user.verification_token = secrets.token_urlsafe(32)
     pending_user.token_expires_at = timezone.now() + timedelta(hours=24)
@@ -106,10 +106,11 @@ class UserRegistrationService:
 
   @classmethod
   def change_pending_email(cls, old_email, new_email):
+    print(old_email)
     try:
       pending_user = PendingUser.objects.get(email=old_email)
     except PendingUser.DoesNotExist:
-      raise NotFound(_('登録が見つかりません'))
+      raise NotFound(_("We couldn't find your registration."))
     
     try:
       with transaction.atomic():

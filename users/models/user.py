@@ -25,14 +25,6 @@ class User(AbstractBaseUser, SecurityMixin, PermissionsMixin,):
     ('AU', 'Australia'),
     ('JP', 'Japan'),
   )
-  TIMEZONE_CHOICES = (
-    ('Asia/Tokyo', '日本標準時 (JST)'),
-    ('Australia/Sydney', 'オーストラリア東部標準時 (AEST) - シドニー'),
-    ('Australia/Melbourne', 'オーストラリア東部標準時 (AEST) - メルボルン'),
-    ('Australia/Brisbane', 'オーストラリア東部標準時 (AEST) - ブリスベン'),
-    ('Australia/Perth', 'オーストラリア西部標準時 (AWST) - パース'),
-    ('Australia/Adelaide', 'オーストラリア中部標準時 (ACST) - アデレード'),
-  )
   AUTH_PROVIDER_CHOICES = (
     ('email', 'メール'),
     ('google', 'Google'),
@@ -77,7 +69,7 @@ class User(AbstractBaseUser, SecurityMixin, PermissionsMixin,):
   # === 国際化設定 ===
   language = models.CharField('言語', max_length=10, choices=LANGUAGE_CHOICES, blank=True, null=True)
   country = models.CharField('国', max_length=2, choices=COUNTRY_CHOICES, blank=True, null=True )
-  user_timezone = models.CharField('タイムゾーン', max_length=50, choices=TIMEZONE_CHOICES, blank=True, null=True)
+  user_timezone = models.CharField('タイムゾーン', max_length=50, blank=True, null=True)
     
   objects = UserManager()
     

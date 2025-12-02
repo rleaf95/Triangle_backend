@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.utils.translation import gettext as _
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from smtplib import (
@@ -22,27 +22,27 @@ class EmailSendException(APIException):
 class EmailService:
   ERROR_TEMPLATES = {
     'authentication': {
-      'message': _('システムエラーが発生しました。管理者に連絡してください。'),
+      'detail': _('システムエラーが発生しました。管理者に連絡してください。'),
       'status_code': status.HTTP_500_INTERNAL_SERVER_ERROR
     },
     'connection': {
-      'message': _('メール送信に失敗しました。しばらく経ってから再度お試しください。'),
+      'detail': _('メール送信に失敗しました。しばらく経ってから再度お試しください。'),
       'status_code': status.HTTP_503_SERVICE_UNAVAILABLE
     },
     'invalid_email': {
-      'message': _('メールアドレスの形式が正しくありません。'),
+      'detail': _('メールアドレスの形式が正しくありません。'),
       'status_code': status.HTTP_400_BAD_REQUEST
     },
     'recipient_refused': {
-      'message': _('このメールアドレスは存在しないか、受信できません。'),
+      'detail': _('このメールアドレスは存在しないか、受信できません。'),
       'status_code': status.HTTP_400_BAD_REQUEST
     },
     'smtp': {
-      'message': _('メール送信に失敗しました。メールアドレスをご確認ください。'),
+      'detail': _('メール送信に失敗しました。メールアドレスをご確認ください。'),
       'status_code': status.HTTP_400_BAD_REQUEST
     },
     'unknown': {
-      'message': _('メール送信に失敗しました。'),
+      'detail': _('メール送信に失敗しました。'),
       'status_code': status.HTTP_500_INTERNAL_SERVER_ERROR
     }
   }
@@ -61,7 +61,7 @@ class EmailService:
     from django.core.mail import send_mail
 
     try:
-      email = EmailMessage(
+      email =EmailMultiAlternatives(
         subject=subject,
         body=text_content,
         from_email=settings.DEFAULT_FROM_EMAIL,

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+from django.utils.translation import gettext_lazy as _
 
 # ===== 基本設定 =====
 
@@ -22,7 +23,7 @@ INSTALLED_APPS = [
   'django.contrib.sessions',
   'django.contrib.messages',
   'django.contrib.staticfiles',
-  'django.contrib.sites',  # django-allauthに必要
+  'django.contrib.sites',
 
   # 自作アプリ
   'authentication',
@@ -52,8 +53,8 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
-  'django.middleware.security.SecurityMiddleware',
   'corsheaders.middleware.CorsMiddleware',
+  'django.middleware.security.SecurityMiddleware',
   'django.contrib.sessions.middleware.SessionMiddleware',
   'django.middleware.locale.LocaleMiddleware',
   'django.middleware.common.CommonMiddleware',
@@ -127,12 +128,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # ===== 国際化設定 =====
 
-LANGUAGE_CODE = 'ja'
+LANGUAGE_CODE = 'en'
 
-# サポートする言語
 LANGUAGES = [
-  ('ja', '日本語'),
-  ('en', 'English'),
+  ('en', _('English')),
+  ('ja', _('Japanese')),
 ]
 # 翻訳ファイルの場所
 LOCALE_PATHS = [
@@ -185,6 +185,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 AUTHENTICATION_BACKENDS = [
   'users.backends.CustomerAuthBackend',
   'users.backends.StaffOwnerAuthBackend',
+  'django.contrib.auth.backends.ModelBackend',
 ]
 
 # アカウント設定
@@ -249,7 +250,7 @@ USE_DISPOSABLE_EMAIL_API = True
 
 REST_FRAMEWORK = {
   'DEFAULT_AUTHENTICATION_CLASSES': [
-    'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'authentication.authentication.CookieJWTAuthentication',
   ],
   'DEFAULT_PERMISSION_CLASSES': [
     'rest_framework.permissions.IsAuthenticated',
@@ -451,15 +452,19 @@ LOGGING = {
 
 # ===== キャッシュ設定（Redis） =====
 
-CACHES = {
-  'default': {
-    'BACKEND': 'django_redis.cache.RedisCache',
-    'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
-    'OPTIONS': {
-      'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-    }
-  }
-}
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/0'),
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#             'CONNECTION_POOL_KWARGS': {
+#                 'max_connections': 50,
+#             }
+#         }
+#     }
+# }
+
 
 # 開発環境ではダミーキャッシュ
 if DEBUG:

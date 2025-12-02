@@ -57,18 +57,18 @@ def enable_db_access_for_all_tests(db):
 # モック用フィクスチャ
 # ========================================
 
-@pytest.fixture(autouse=True)
-def mock_redis_for_all_tests(mocker, fake_redis):
-  """すべてのテストで自動的にRedisをモック"""
-  mocker.patch(
-    'common.utils.redis_client.get_redis_client',
-    return_value=fake_redis
-  )
-  mocker.patch(
-    'common.utils.rate_limiter.get_redis_client',
-    return_value=fake_redis
-  )
-  return fake_redis
+# @pytest.fixture(autouse=True)
+# def mock_redis_for_all_tests(mocker, fake_redis):
+#   """すべてのテストで自動的にRedisをモック"""
+#   mocker.patch(
+#     'common.utils.redis_client.get_redis_client',
+#     return_value=fake_redis
+#   )
+#   mocker.patch(
+#     'common.utils.rate_limiter.get_redis_client',
+#     return_value=fake_redis
+#   )
+#   return fake_redis
 
 
 

@@ -97,7 +97,10 @@ class TestDisposableEmailInSerializer:
     data = {
       'email': 'test@gmail.com',
       'password': 'SecurePass123!',
-      'user_type': 'OWNER'
+      'confirm_password': 'SecurePass123!',
+      'user_type': 'OWNER',
+      'first_name': 'Test',
+      'last_name': 'User',
     }
     
     serializer = OwnerSignupSerializer(data=data)

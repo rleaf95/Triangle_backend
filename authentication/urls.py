@@ -1,17 +1,24 @@
 from django.urls import path
-from .views import login, registration
+from authentication.views import (
+  CurrentUserView,
+  CustomerLoginView,
+  StaffOwnerLoginView,
+  RefreshTokenView,
+  OwnerRegisterView, 
+  CustomerRegisterView, 
+  VerifyEmailView,
+  ResendVerificationEmailView,
+  ChangePendingEmailView
+)
 
 urlpatterns = [
-  path('business_register/', registration.OwnerRegisterView.as_view(), name='business-register' ),
-  path('register/', registration.CustomerRegisterView.as_view(), name='customer-register'),
-
-  path('email/verify/', registration.VerifyEmailView.as_view(), name='email_verify'),
-  path('email/verify/resend/', registration.ResendVerificationEmailView.as_view(), name='verify-email-resend'),
-  path('email/verify/change/', registration.ChangePendingEmailView.as_view(), name='verify-email-change'),
-
-  # path('customer/login/', login.CustomerLoginView.as_view(), name='customer-login'),
-  # path('customer/register/', login.CustomerRegisterView.as_view(), name='customer-register'),
-  
-  # path('staff/login/', login.StaffOwnerLoginView.as_view(), name='staff-owner-login'),
-  # path('staff/register/', login.StaffOwnerRegisterView.as_view(), name='staff-owner-register'),
+  path('me/', CurrentUserView.as_view(), name='current-user'),
+  path('refresh/', RefreshTokenView.as_view(), name='current-user'),
+  path('login/', CustomerLoginView.as_view(), name='customer-login'),
+  path('business_login/', StaffOwnerLoginView.as_view(), name='business-login'),
+  path('register/', CustomerRegisterView.as_view(), name='customer-register'),
+  path('business_register/', OwnerRegisterView.as_view(), name='business-register'),
+  path('email/verify/', VerifyEmailView.as_view(), name='email-verify'),
+  path('email/verify/resend/', ResendVerificationEmailView.as_view(), name='email-verify-resend'),
+  path('email/verify/change/', ChangePendingEmailView.as_view(), name='email-verify-change')
 ]

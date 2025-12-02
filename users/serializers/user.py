@@ -27,7 +27,8 @@ class UserSerializer(serializers.ModelSerializer):
     model = User
     fields = [
       'id', 'email', 'first_name', 'last_name',
-      'phone_number', 'user_type', 'profile', 'progress'
+      'phone_number', 'user_type', 'profile', 'progress',
+      'country', 'user_timezone', 'language'
     ]
     read_only_fields = ['id', 'user_type']
 
@@ -54,17 +55,6 @@ class UserSerializer(serializers.ModelSerializer):
     
     return None
   
-  def get_profile(self, obj):
-    if obj.user_type == 'STAFF':
-      if hasattr(obj, '_staff_profile'):
-        profile = obj._staff_profile
-      else:
-        try:
-          profile = obj.staff_profile
-        except StaffProfile.DoesNotExist:
-          return None
-      return ProfileSerializer(profile).data
-    return None
 
   def __init__(self, *args, **kwargs):
     fields = kwargs.pop('fields', None)
