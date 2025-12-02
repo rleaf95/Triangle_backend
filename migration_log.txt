@@ -1,0 +1,45 @@
+System check identified some issues:
+
+WARNINGS:
+account.EmailAddress: (models.W036) MySQL does not support unique constraints with conditions.
+	HINT: A constraint won't be created. Silence this warning if you don't care about it.
+Operations to perform:
+  Apply all migrations: users
+Running pre-migrate handlers for application admin
+Running pre-migrate handlers for application auth
+Running pre-migrate handlers for application contenttypes
+Running pre-migrate handlers for application sessions
+Running pre-migrate handlers for application sites
+Running pre-migrate handlers for application authentication
+Running pre-migrate handlers for application organizations
+Running pre-migrate handlers for application users
+Running pre-migrate handlers for application invitation
+Running pre-migrate handlers for application permissions
+Running pre-migrate handlers for application common
+Running pre-migrate handlers for application authtoken
+Running pre-migrate handlers for application rest_framework_simplejwt
+Running pre-migrate handlers for application token_blacklist
+Running pre-migrate handlers for application dj_rest_auth
+Running pre-migrate handlers for application allauth
+Running pre-migrate handlers for application account
+Running pre-migrate handlers for application socialaccount
+Running migrations:
+  No migrations to apply.
+Running post-migrate handlers for application admin
+Running post-migrate handlers for application auth
+Running post-migrate handlers for application contenttypes
+Running post-migrate handlers for application sessions
+Running post-migrate handlers for application sites
+Running post-migrate handlers for application authentication
+Running post-migrate handlers for application organizations
+Running post-migrate handlers for application users
+Running post-migrate handlers for application invitation
+Running post-migrate handlers for application permissions
+Running post-migrate handlers for application common
+Running post-migrate handlers for application authtoken
+Running post-migrate handlers for application rest_framework_simplejwt
+Running post-migrate handlers for application token_blacklist
+Running post-migrate handlers for application dj_rest_auth
+Running post-migrate handlers for application allauth
+Running post-migrate handlers for application account
+Running post-migrate handlers for application socialaccount

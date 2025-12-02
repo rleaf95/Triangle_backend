@@ -73,7 +73,23 @@ class UserManager(BaseUserManager):
   
 
   # === ユーザーを作成メソッド ===
-  
+  def create_user(self, email, password=None, **extra_fields):
+    """通常のユーザーを作成"""
+    if not email:
+        raise ValueError('メールアドレスは必須です')
+    
+    email = self.normalize_email(email)
+    
+    extra_fields.setdefault('user_group', 'CUSTOMER')
+    extra_fields.setdefault('is_active', True)
+    
+    user = self.model(email=email, **extra_fields)
+    user.set_password(password)
+    user.save(using=self._db)
+    
+    return user
+
+
   def create_superuser(self, email, password=None, **extra_fields):
     """スーパーユーザーを作成"""
     extra_fields.setdefault('is_staff', True)
@@ -82,11 +98,11 @@ class UserManager(BaseUserManager):
     extra_fields.setdefault('is_system_admin', True)
     extra_fields.setdefault('user_type', 'OWNER')
     extra_fields.setdefault('is_email_verified', True)
+    extra_fields.setdefault('user_group', 'STAFF_OWNER')
     
     if extra_fields.get('is_staff') is not True:
-      raise ValueError('スーパーユーザーのis_staffはTrueである必要があります')
+        raise ValueError('スーパーユーザーのis_staffはTrueである必要があります')
     if extra_fields.get('is_superuser') is not True:
-      raise ValueError('スーパーユーザーのis_superuserはTrueである必要があります')
+        raise ValueError('スーパーユーザーのis_superuserはTrueである必要があります')
     
     return self.create_user(email, password, **extra_fields)
-

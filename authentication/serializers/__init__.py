@@ -3,6 +3,7 @@ from .registration import (
   CustomerSignupSerializer,
   EmailConfirmSerializer,
   SocialLoginSerializer,
+  EmailChangeSerializer,
 )
 from .activation import (
   ActivationSerializer
@@ -19,5 +20,6 @@ __all__ = [
   'SocialLoginSerializer',
   'ActivationSerializer',
   'BusinessLoginSerializer',
-  'CustomerLoginSerializer'
+  'CustomerLoginSerializer',
+  ' EmailChangeSerializer',
 ]

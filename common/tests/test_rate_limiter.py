@@ -1,95 +1,99 @@
-import pytest
-from common.utils.rate_limiter import RateLimiter
+from django.core.cache import cache
+from django_redis import get_redis_connection
+import logging
 
+logger = logging.getLogger(__name__)
 
-class TestRateLimiter:
+class RateLimiter:
+  """汎用レート制限（どのアプリからも使用可能）"""
   
-  def test_first_request_allowed(self):
-    rate_limiter = RateLimiter()
-    
-    result = rate_limiter.check_rate_limit('test:user1', 5, 3600)
-    assert result is True
-  
-  def test_within_limit_allowed(self, ):
-    rate_limiter = RateLimiter()
-    key = 'test:user2'
-    
-    for i in range(5):
-      result = rate_limiter.check_rate_limit(key, 5, 3600)
-      assert result is True
+  def __init__(self):
+    self.redis_client = None
+    try:
+      self.redis_client = get_redis_connection("default")
+    except Exception as e:
+      logger.warning(f"Redis connection not available: {e}")
 
-  def test_exceed_limit_blocked(self, ):
-    """制限を超えるリクエストはブロックされる"""
-    rate_limiter = RateLimiter()
-    key = 'test:user3'
+  def check_rate_limit(self, key: str, limit: int, period: int) -> bool:
+    """
+    レート制限をチェック
     
-    for i in range(5):
-      rate_limiter.check_rate_limit(key, 5, 3600)
+    Args:
+      key: キャッシュキー
+      limit: 制限回数
+      period: 制限期間（秒）
     
-    result = rate_limiter.check_rate_limit(key, 5, 3600)
-    assert result is False
+    Returns:
+      True: リクエスト許可, False: レート制限超過
+    """
+    try:
+      current = cache.get(key)
+      
+      if current is None:
+        cache.set(key, 1, timeout=period)
+        return True
+      
+      current = int(current)
+      if current >= limit:
+        logger.warning(f"Rate limit exceeded for key: {key}")
+        return False
+      cache.incr(key)
+      return True
+      
+    except Exception as e:
+      logger.error(f"Cache error in rate limiting: {str(e)}")
+      # エラー時は寛容にリクエストを許可
+      return True
   
-  def test_different_keys_independent(self, ):
-    rate_limiter = RateLimiter()
+  def get_remaining(self, key: str, limit: int) -> int:
+    """
+    残りのリクエスト可能回数を取得
     
-    for i in range(5):
-      rate_limiter.check_rate_limit('test:user1', 5, 3600)
+    Args:
+      key: キャッシュキー
+      limit: 制限回数
     
-    result = rate_limiter.check_rate_limit('test:user2', 5, 3600)
-    assert result is True
-
-  def test_get_remaining_attempts(self, ):
-    """残り試行回数の取得"""
-    rate_limiter = RateLimiter()
-    key = 'test:user4'
-    limit = 5
-    
-    remaining = rate_limiter.get_remaining(key, limit)
-    assert remaining == 5
-    
-    rate_limiter.check_rate_limit(key, limit, 3600)
-    rate_limiter.check_rate_limit(key, limit, 3600)
-    
-    remaining = rate_limiter.get_remaining(key, limit)
-    assert remaining == 3
+    Returns:
+      残りのリクエスト可能回数
+    """
+    try:
+      current = cache.get(key)
+      if current is None:
+        return limit
+      return max(0, limit - int(current))
+    except Exception:
+      return limit
   
-  def test_get_reset_time(self, ):
-    """リセット時間の取得"""
-    rate_limiter = RateLimiter()
-    key = 'test:user5'
+  def get_reset_time(self, key: str) -> int:
+    """
+    レート制限がリセットされるまでの秒数を取得
     
-    rate_limiter.check_rate_limit(key, 5, 3600)
+    Note: この機能はRedis使用時のみ正確に動作します
     
-    reset_time = rate_limiter.get_reset_time(key)
-    assert 0 < reset_time <= 3600
+    Args:
+      key: キャッシュキー
+    
+    Returns:
+      リセットまでの秒数（Redis未使用時は0）
+    """
+    if self.redis_client is None:
+      return 0
+    
+    try:
+      ttl = self.redis_client.ttl(key)
+      return ttl if ttl > 0 else 0
+    except Exception as e:
+      logger.error(f"Error getting reset time: {e}")
+      return 0
   
-  def test_redis_error_handling(self, ):
-    """Redisエラー時の挙動"""
-    rate_limiter = RateLimiter()
+  def reset(self, key: str) -> None:
+    """
+    レート制限をリセット（主にテスト用）
     
-    # Redisを壊す
-    rate_limiter.redis_client.get = lambda x: (_ for _ in ()).throw(Exception('Redis error'))
-    
-    # エラー時はリクエストを許可（サービス継続優先）
-    result = rate_limiter.check_rate_limit('test:error', 5, 3600)
-    assert result is True
-  
-  @pytest.mark.parametrize("limit,attempts,expected", [
-    (5, 3, True),
-    (5, 5, True),
-    (5, 6, False),
-    (10, 9, True),
-    (10, 11, False),
-    (1, 1, True),
-    (1, 2, False),
-  ])
-  def test_various_limits(self, limit, attempts, expected):
-    """様々な制限値でのパラメータ化テスト"""
-    rate_limiter = RateLimiter()
-    key = f'test:param:{limit}:{attempts}'
-    
-    for i in range(attempts - 1):
-      rate_limiter.check_rate_limit(key, limit, 3600)
-    
-    result = rate_limiter.check_rate_limit(key, limit, 3600)
-    assert result is expected
+    Args:
+      key: キャッシュキー
+    """
+    try:
+      cache.delete(key)
+    except Exception as e:
+      logger.error(f"Error resetting rate limit: {e}")

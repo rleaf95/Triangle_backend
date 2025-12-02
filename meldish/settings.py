@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+from django.utils.translation import gettext_lazy as _
 
 # ===== 基本設定 =====
 
@@ -127,12 +128,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # ===== 国際化設定 =====
 
-LANGUAGE_CODE = 'ja'
+LANGUAGE_CODE = 'en'
 
-# サポートする言語
 LANGUAGES = [
-  ('ja', '日本語'),
-  ('en', 'English'),
+  ('en', _('English')),
+  ('ja', _('Japanese')),
 ]
 # 翻訳ファイルの場所
 LOCALE_PATHS = [
@@ -452,15 +452,19 @@ LOGGING = {
 
 # ===== キャッシュ設定（Redis） =====
 
-CACHES = {
-  'default': {
-    'BACKEND': 'django_redis.cache.RedisCache',
-    'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
-    'OPTIONS': {
-      'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-    }
-  }
-}
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/0'),
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#             'CONNECTION_POOL_KWARGS': {
+#                 'max_connections': 50,
+#             }
+#         }
+#     }
+# }
+
 
 # 開発環境ではダミーキャッシュ
 if DEBUG:

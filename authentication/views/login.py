@@ -33,15 +33,14 @@ class CustomerLoginView(TokenResponseMixin, APIView):
     access_token = str(refresh.access_token)
     refresh_token = str(refresh)
 		
-    user_serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress'])
+    user_serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress', 'language'])
 
     response_data = { 
       'detail': _('ログインしました'),
       'user': user_serializer.data, 
     }
-    response_status = status.HTTP_200_OK
 
-    return self.create_token_response(access_token, refresh_token, response_data, response_status, platform)
+    return self.create_token_response(access_token, refresh_token, response_data, status.HTTP_200_OK, platform)
 
 
 class StaffOwnerLoginView(TokenResponseMixin, APIView):
@@ -64,16 +63,15 @@ class StaffOwnerLoginView(TokenResponseMixin, APIView):
     access_token = str(refresh.access_token)
     refresh_token = str(refresh)
 		
-    user_serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress'])
+    user_serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress', 'language'])
 
 
     response_data = { 
       'detail': _('ログインしました'),
       'user': user_serializer.data, 
     }
-    response_status = status.HTTP_200_OK
 
-    return self.create_token_response(access_token, refresh_token, response_data, response_status, platform)
+    return self.create_token_response(access_token, refresh_token, response_data, status.HTTP_200_OK, platform)
   
 
 class CurrentUserView(APIView):
@@ -81,7 +79,7 @@ class CurrentUserView(APIView):
   
   def get(self, request):
     user = request.user
-    serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress'])
+    serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'user_type', 'progress', 'language'])
     return Response({
       'user': serializer.data,
     })
@@ -112,9 +110,8 @@ class RefreshTokenView(TokenResponseMixin, APIView):
       response_data = {
         'detail': _('トークンを更新しました')
       }
-      status = status.HTTP_200_OK
       
-      return self.create_token_response(access_token, refresh_token, response_data, status, platform)
+      return self.create_token_response(access_token, refresh_token, response_data, status.HTTP_200_OK, platform)
         
     except Exception as e:
       return Response(

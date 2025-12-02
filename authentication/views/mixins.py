@@ -4,26 +4,31 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from users.serializers import UserSerializer
 
 class TokenResponseMixin:
-  def create_token_response(self, user, message, is_link_social, platform='web', ):
-
-    refresh = RefreshToken.for_user(user)
-    access_token = str(refresh.access_token)
-    refresh_token = str(refresh)
+  def get_platform(self, request):
+    platform = request.data.get('platform')
     
-    serializer = UserSerializer(user, fields=['id', 'email', 'first_name', 'last_name', 'progress'])
-
-    response_data = {
-      'message': message,
-      'user': serializer.data,
-      'is_link_social': is_link_social
-    }
+    if not platform:
+      platform = request.headers.get('X-Platform')
     
+    if not platform:
+      user_agent = request.headers.get('User-Agent', '').lower()
+      if 'android' in user_agent:
+        platform = 'android'
+      elif 'iphone' in user_agent or 'ipad' in user_agent:
+        platform = 'ios'
+      else:
+        platform = 'web'
+    
+    return platform
+  
+  def create_token_response(self, access_token, refresh_token, response_data, http_status, platform='web', ):
+        
     if platform in ['ios', 'android']:
       response_data['access'] = access_token
       response_data['refresh'] = refresh_token
-      response = Response(response_data, status=status.HTTP_201_CREATED)
+      response = Response(response_data, status=http_status)
     else:
-      response = Response(response_data, status=status.HTTP_201_CREATED)
+      response = Response(response_data, status=http_status)
       response.set_cookie(
         key='access_token',
         value=access_token,

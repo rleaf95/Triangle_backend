@@ -11,7 +11,7 @@ class RegistrationEmailService:
   def send_registration_confirmation(cls, pending_user):
     current_language = get_language() 
 
-    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify-email?token={pending_user.verification_token}"
     context = {
       'email': pending_user.email,
       'verification_url': verification_url,
@@ -23,7 +23,7 @@ class RegistrationEmailService:
     
     return EmailService.send_template_email(
       to_email=pending_user.email,
-      subject=_('アカウント登録の確認'),
+      subject=_('Account Registration Verification'),
       html_content=html_content,
       text_content=text_content,
       logging_text='Send verification mail'
@@ -32,7 +32,7 @@ class RegistrationEmailService:
   @classmethod
   def resend_confirmation(cls, pending_user):
     current_language = get_language() 
-    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify-email?token={pending_user.verification_token}"
 
     context = {
       'email': pending_user.email,
@@ -46,7 +46,7 @@ class RegistrationEmailService:
     
     return EmailService.send_template_email(
       to_email=pending_user.email,
-      subject=_('メールアドレスの確認（再送信）'),
+      subject=_('Email Verification (Resend)'),
       html_content=html_content,
       text_content=text_content,
       logging_text='Resend verification mail'
@@ -56,7 +56,7 @@ class RegistrationEmailService:
   @classmethod
   def send_email_change_confirmation(cls, pending_user, new_email):
     current_language = get_language() 
-    verification_url = f"{settings.FRONTEND_WEB_URL}/verify/{pending_user.verification_token}"
+    verification_url = f"{settings.FRONTEND_WEB_URL}/verify-email?token={pending_user.verification_token}"
     
     context = {
       'old_email': pending_user.email,
@@ -70,7 +70,7 @@ class RegistrationEmailService:
     
     return EmailService.send_template_email(
       to_email=new_email,
-      subject=_('新しいメールアドレスの確認'),
+      subject=_('Verify New Email Address'),
       html_content=html_content,
       text_content=text_content,
       logging_text='Send verification changed mail'
